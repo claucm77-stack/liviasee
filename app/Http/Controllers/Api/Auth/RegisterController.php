@@ -28,11 +28,11 @@ class RegisterController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => 'nullable|string|in:' . implode(',', Roles::ALL),
         ]);
 
-        // Get role from request or use default
-        $role = Roles::normalize((string) $request->input('role', Roles::DEFAULT));
+        // El registro publico siempre crea microempresarios. Los roles elevados
+        // solo pueden asignarse desde la administracion protegida.
+        $role = Roles::DEFAULT;
 
         // Create user
         $user = User::create([
@@ -64,6 +64,7 @@ class RegisterController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
             ],
             'token' => $token->plainTextToken,

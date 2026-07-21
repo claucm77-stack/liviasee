@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../entities/app_user.dart';
 
 abstract class AuthRepository {
@@ -27,6 +29,12 @@ abstract class AuthRepository {
     required String name,
     required String email,
     required String photoUrl,
+  });
+
+  Future<AppUser> uploadProfilePhoto({
+    required AppUser user,
+    required Uint8List bytes,
+    required String fileName,
   });
 
   Future<void> signOut();

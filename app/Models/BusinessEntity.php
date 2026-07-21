@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class BusinessEntity extends Model
 {
     protected $fillable = [
         'name',
+        'external_id',
         'image_path',
+        'image_url',
         'main_url',
         'links',
         'documents',
@@ -25,8 +26,8 @@ class BusinessEntity extends Model
     public function imageUrl(): string
     {
         return $this->image_path
-            ? Storage::disk('public')->url($this->image_path)
-            : '';
+            ? route('api.business-entities.image', $this)
+            : (string) ($this->image_url ?? '');
     }
 
     public function firestoreResources(): array

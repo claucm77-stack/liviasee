@@ -43,6 +43,21 @@ class LogModel {
     );
   }
 
+  factory LogModel.fromMap(Map<String, dynamic> data) {
+    final rawDate = data['fecha'] ?? data['createdAt'] ?? data['created_at'];
+    return LogModel(
+      id: (data['id'] ?? '').toString(),
+      usuarioId: (data['usuarioId'] ?? data['user_id'] ?? '').toString(),
+      accion: (data['accion'] ?? data['action'] ?? '').toString(),
+      modulo: (data['modulo'] ?? data['module'] ?? '').toString(),
+      fecha: rawDate is String
+          ? DateTime.tryParse(rawDate) ?? DateTime.now()
+          : DateTime.now(),
+      origen: (data['origen'] ?? data['origin'] ?? 'laravel').toString(),
+      detalle: (data['detalle'] ?? data['description'] ?? '').toString(),
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'usuarioId': usuarioId,

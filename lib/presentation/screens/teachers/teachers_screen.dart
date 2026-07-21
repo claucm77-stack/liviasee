@@ -16,59 +16,25 @@ class TeachersScreen extends ConsumerStatefulWidget {
 
 class _TeachersScreenState extends ConsumerState<TeachersScreen> {
   String _query = '';
-  String _category = 'Publicidad';
+  late Future<List<_Teacher>> _teachersFuture;
 
-  static const _categories = ['Publicidad', 'Derecho', 'Contabilidad'];
+  @override
+  void initState() {
+    super.initState();
+    _teachersFuture = _loadTeachers();
+  }
 
-  static const _teachers = [
-    _Teacher(
-      id: 'alirio_camacho',
-      name: 'Alirio Camacho',
-      area: 'Publicidad',
-      specialty: 'Marketing Digital',
-      imageUrl:
-          'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=300&q=80',
-    ),
-    _Teacher(
-      id: 'ana_maria_camelo',
-      name: 'Ana María Camelo',
-      area: 'Derecho',
-      specialty: 'Administrativo',
-      imageUrl:
-          'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
-    ),
-    _Teacher(
-      id: 'antonio_fernandez',
-      name: 'Antonio Fernandez',
-      area: 'Contaduría',
-      specialty: 'Tributación',
-      imageUrl:
-          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
-    ),
-    _Teacher(
-      id: 'pedro_rosas',
-      name: 'Pedro Rosas',
-      area: 'Administración',
-      specialty: 'Emprendimiento',
-      imageUrl:
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-    ),
-  ];
+  Future<List<_Teacher>> _loadTeachers() async {
+    final rows = await ref.read(laravelApiServiceProvider).fetchTeachers();
+    return rows.map(_Teacher.fromMap).toList();
+  }
+
+  void _refresh() {
+    setState(() => _teachersFuture = _loadTeachers());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _teachers.where((teacher) {
-      final q = _query.trim().toLowerCase();
-      final matchesQuery = q.isEmpty ||
-          teacher.name.toLowerCase().contains(q) ||
-          teacher.area.toLowerCase().contains(q) ||
-          teacher.specialty.toLowerCase().contains(q);
-      final matchesCategory = _category == 'Publicidad'
-          ? true
-          : teacher.area.toLowerCase().contains(_category.toLowerCase());
-      return matchesQuery && matchesCategory;
-    }).toList();
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -103,80 +69,76 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
           child: Divider(height: 1),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(14, 34, 14, 24),
-        children: [
-          TextField(
-            onChanged: (value) => setState(() => _query = value),
-            decoration: InputDecoration(
-              hintText: 'Nombre o negocio',
-              prefixIcon: const Icon(Icons.search, size: 30),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: Color(0xFF4C8D93), width: 2),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: Color(0xFF4C8D93), width: 2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 34),
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                if (index == _categories.length) {
-                  return IconButton(
-                    tooltip: 'Más categorías',
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.arrow_forward,
-                      color: Color(0xFF4C8D93),
-                      size: 34,
-                    ),
-                  );
-                }
-                final category = _categories[index];
-                return ChoiceChip(
-                  label: Text(category),
-                  selected: _category == category,
-                  onSelected: (_) => setState(() => _category = category),
-                  showCheckmark: false,
-                  selectedColor: const Color(0xFFFFC34E),
-                  backgroundColor: const Color(0xFFFFC34E),
-                  labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    side: BorderSide.none,
+      body: FutureBuilder<List<_Teacher>>(
+        future: _teachersFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _TeacherDirectoryState(
+              icon: Icons.cloud_off_outlined,
+              title: 'No se pudieron cargar los docentes',
+              message: 'Revisa la conexión con Laravel e intenta nuevamente.',
+              onRetry: _refresh,
+            );
+          }
+
+          final q = _query.trim().toLowerCase();
+          final filtered = (snapshot.data ?? const <_Teacher>[])
+              .where((teacher) =>
+                  q.isEmpty ||
+                  teacher.name.toLowerCase().contains(q) ||
+                  teacher.area.toLowerCase().contains(q))
+              .toList();
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(14, 34, 14, 24),
+            children: [
+              TextField(
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  hintText: 'Nombre del docente',
+                  prefixIcon: const Icon(Icons.search, size: 30),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF4C8D93), width: 2),
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 44),
-          ...filtered.map(
-            (teacher) => Padding(
-              padding: const EdgeInsets.only(bottom: 30),
-              child: _TeacherTile(
-                teacher: teacher,
-                onMessage: () => _openChat(context, teacher),
-                onRate: () => _rateTeacher(teacher),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF4C8D93), width: 2),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+              const SizedBox(height: 34),
+              if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 72),
+                  child: _TeacherDirectoryState(
+                    icon: Icons.school_outlined,
+                    title: 'No hay docentes disponibles',
+                    message:
+                        'Los docentes activos creados en Laravel aparecerán aquí.',
+                  ),
+                )
+              else
+                ...filtered.map(
+                  (teacher) => Padding(
+                    padding: const EdgeInsets.only(bottom: 30),
+                    child: _TeacherTile(
+                      teacher: teacher,
+                      onMessage: () => _openChat(context, teacher),
+                      onRate: () => _rateTeacher(teacher),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -185,7 +147,7 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
     final params = {
       'id': teacher.id,
       'name': teacher.name,
-      'area': '${teacher.area} · ${teacher.specialty}',
+      'area': teacher.area,
       'image': teacher.imageUrl,
     };
     context
@@ -282,14 +244,6 @@ class _TeacherTile extends ConsumerWidget {
                       height: 1.2,
                     ),
               ),
-              Text(
-                teacher.specialty,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black,
-                      fontSize: 16,
-                      height: 1.2,
-                    ),
-              ),
               StreamBuilder(
                 stream: ref
                     .watch(firestoreServiceProvider)
@@ -343,13 +297,57 @@ class _Teacher {
     required this.id,
     required this.name,
     required this.area,
-    required this.specialty,
     required this.imageUrl,
   });
 
   final String id;
   final String name;
   final String area;
-  final String specialty;
   final String imageUrl;
+
+  factory _Teacher.fromMap(Map<String, dynamic> map) {
+    return _Teacher(
+      id: (map['uid'] ?? '').toString(),
+      name: (map['name'] ?? '').toString(),
+      area: (map['roleLabel'] ?? 'Docente').toString(),
+      imageUrl: (map['photoUrl'] ?? '').toString(),
+    );
+  }
+}
+
+class _TeacherDirectoryState extends StatelessWidget {
+  const _TeacherDirectoryState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: AppColors.primary),
+            const SizedBox(height: 14),
+            Text(title, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            if (onRetry != null) ...[
+              const SizedBox(height: 18),
+              FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

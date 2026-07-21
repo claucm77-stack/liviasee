@@ -31,7 +31,6 @@
 
   <title>Livi@se</title>
   <link rel="manifest" href="manifest.json">
-  <script src="https://maps.googleapis.com/maps/api/js?key=REEMPLAZAR_CON_TU_GOOGLE_MAPS_API_KEY"></script>
 </head>
 <body>
   <!--
@@ -42,6 +41,20 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Firebase Authentication autoriza localhost para desarrollo. Conservamos
+    // puerto, ruta, query y hash para que los accesos por 127.0.0.1 no rompan
+    // el inicio de sesion con Google.
+    if (window.location.hostname === '127.0.0.1') {
+      const authorizedUrl = new URL(window.location.href);
+      authorizedUrl.hostname = 'localhost';
+      window.location.replace(authorizedUrl.toString());
+    } else {
+      const bootstrap = document.createElement('script');
+      bootstrap.src = `flutter_bootstrap.js?v=${Date.now()}`;
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
+    }
+  </script>
 </body>
 </html>

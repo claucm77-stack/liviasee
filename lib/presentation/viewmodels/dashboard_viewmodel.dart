@@ -283,6 +283,7 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
           role: role,
           isActive: isActive,
         );
+    _subscribeUsers();
     await addLog(
       accion: 'Actualizar usuario',
       modulo: 'usuarios',

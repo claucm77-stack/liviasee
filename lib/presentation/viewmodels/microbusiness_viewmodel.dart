@@ -228,10 +228,25 @@ class MicrobusinessViewModel extends StateNotifier<MicrobusinessState> {
   Future<void> rateBusiness(String businessId, double rating) async {
     state = state.copyWith(clearError: true);
     try {
-      await _ref.read(microbusinessRepositoryProvider).rateBusiness(
-            businessId: businessId,
-            rating: rating,
-          );
+      final updated =
+          await _ref.read(microbusinessRepositoryProvider).rateBusiness(
+                businessId: businessId,
+                rating: rating,
+              );
+      List<Microbusiness> replace(List<Microbusiness> items) => items
+          .map((business) => business.id == updated.id ? updated : business)
+          .toList();
+      final allBusinesses = replace(state.allBusinesses);
+      state = state.copyWith(
+        allBusinesses: allBusinesses,
+        businesses: _applyVisibleFilters(
+          allBusinesses,
+          category: state.selectedCategory,
+          searchText: state.searchQuery,
+        ),
+        nearbyBusinesses: replace(state.nearbyBusinesses),
+        clearError: true,
+      );
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }

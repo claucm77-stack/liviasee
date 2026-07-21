@@ -50,6 +50,13 @@ class AdminDashboardScreen extends StatelessWidget {
           color: AppColors.primaryDark,
         ),
         RoleHomeAction(
+          label: 'Foros y docentes',
+          description: 'Asigna consultas a docentes y revisa respuestas',
+          icon: Icons.forum_outlined,
+          route: '/foros',
+          color: AppColors.secondary,
+        ),
+        RoleHomeAction(
           label: 'Soporte TI',
           description: 'Seguridad, integraciones e incidentes',
           icon: Icons.health_and_safety_outlined,

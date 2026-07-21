@@ -1,13 +1,7 @@
 @php
     $selectedType = old('type', $content->type ?? 'articulo');
     $payloadData = $bodyData['data'] ?? [];
-    $defaultCategoriesByType = [
-        'articulo' => 'Artículos Populares',
-        'video' => 'Repositorio en video',
-        'pdf' => 'Artículos Relacionados',
-        'evento' => 'Cronograma Actividades',
-    ];
-    $selectedCategory = old('category', $bodyData['category'] ?? ($defaultCategoriesByType[$selectedType] ?? 'Artículos Populares'));
+    $selectedCategoryId = old('content_category_id', $content->content_category_id ?? '');
     $imageUrl = old('image_url', $bodyData['image_url'] ?? '');
     $inputClass = 'w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4c8d93] focus:border-[#4c8d93]';
     $sectionClass = 'rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4';
@@ -44,7 +38,6 @@
             name="type"
             class="{{ $inputClass }}"
             required
-            data-default-categories='@json($defaultCategoriesByType)'
         >
             @foreach ($contentTypes as $value => $label)
                 <option value="{{ $value }}" @selected($selectedType === $value)>{{ $label }}</option>
@@ -65,12 +58,13 @@
 
 <div>
     <label class="block text-sm font-medium mb-1">Categoría visible en la app</label>
-    <select id="content-category" name="category" class="{{ $inputClass }}" required>
-        @foreach ($contentCategories as $value => $label)
-            <option value="{{ $value }}" @selected($selectedCategory === $value)>{{ $label }}</option>
+    <select name="content_category_id" class="{{ $inputClass }}" required>
+        <option value="">Selecciona una categoría</option>
+        @foreach ($contentCategories as $category)
+            <option value="{{ $category->id }}" @selected((string) $selectedCategoryId === (string) $category->id)>{{ $category->name }}</option>
         @endforeach
     </select>
-    <p class="mt-1 text-xs text-gray-500">La app usa esta categoría para ubicar el contenido en videos, artículos, conferencias o cronograma.</p>
+    <p class="mt-1 text-xs text-gray-500">La app usará esta categoría para filtrar el contenido cuando el usuario toque su tarjeta de inicio.</p>
 </div>
 
 <div>
@@ -217,8 +211,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const select = document.getElementById('content-type');
-        const categorySelect = document.getElementById('content-category');
-        const defaultCategories = JSON.parse(select.dataset.defaultCategories || '{}');
         const sections = Array.from(document.querySelectorAll('[data-content-section]'));
 
         const syncSections = () => {
@@ -230,9 +222,6 @@
 
         select.addEventListener('change', () => {
             syncSections();
-            if (defaultCategories[select.value]) {
-                categorySelect.value = defaultCategories[select.value];
-            }
         });
         syncSections();
     });

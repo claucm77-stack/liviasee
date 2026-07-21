@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Content;
+use App\Models\ContentCategory;
 use App\Models\BusinessEntity;
 use App\Models\Microbusiness;
 use Kreait\Firebase\Factory;
@@ -26,6 +27,7 @@ class FirestoreSyncService
 
     public function syncContent(Content $content): void
     {
+        $content->loadMissing('contentCategory');
         $payload = $this->decodeContentPayload($content);
         $data = $payload['data'] ?? [];
         $type = (string) ($content->type ?? 'articulo');
@@ -36,7 +38,7 @@ class FirestoreSyncService
             'tipo' => $this->normalizeContentType($type),
             'url' => $this->contentUrl($type, $data),
             'imagen' => (string) ($payload['image_url'] ?? ''),
-            'categoria' => $this->contentCategory($type, $payload),
+            'categoria' => $this->contentCategory($content, $type, $payload),
             'autorId' => '',
             'fechaCreacion' => optional($content->created_at)?->toIso8601String() ?? now()->toIso8601String(),
             'estado' => $content->status === 'publicado' ? 'activo' : 'inactivo',
@@ -52,6 +54,24 @@ class FirestoreSyncService
     public function deleteContent(Content $content): void
     {
         $this->deleteDocument('contenidos', (string) $content->id);
+    }
+
+    public function syncContentCategory(ContentCategory $category): void
+    {
+        $this->setDocument('categorias', 'content_'.$category->id, [
+            'nombre' => $category->name,
+            'scope' => 'contenidos',
+            'descripcion' => (string) ($category->description ?? ''),
+            'imageUrl' => $category->imageUrl(),
+            'orden' => $category->sort_order,
+            'isActive' => $category->is_active,
+            'createdAt' => optional($category->created_at)?->toIso8601String() ?? now()->toIso8601String(),
+        ]);
+    }
+
+    public function deleteContentCategory(ContentCategory $category): void
+    {
+        $this->deleteDocument('categorias', 'content_'.$category->id);
     }
 
     public function syncMicrobusiness(Microbusiness $business): void
@@ -138,8 +158,11 @@ class FirestoreSyncService
         };
     }
 
-    private function contentCategory(string $type, array $payload = []): string
+    private function contentCategory(Content $content, string $type, array $payload = []): string
     {
+        $linkedCategory = trim((string) ($content->contentCategory?->name ?? ''));
+        if ($linkedCategory !== '') return $linkedCategory;
+
         $category = trim((string) ($payload['category'] ?? ''));
         if ($category !== '') {
             return $category;
@@ -182,7 +205,7 @@ class FirestoreSyncService
 
         return [
             'type' => $content->type,
-            'category' => $this->contentCategory((string) $content->type),
+            'category' => $content->contentCategory?->name ?? '',
             'image_url' => '',
             'data' => [
                 'body' => (string) ($content->body ?? ''),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../data/models/app_user_model.dart';
 import '../../data/models/dashboard_metrics_model.dart';
 import '../../data/models/content_model.dart';
@@ -5,16 +7,56 @@ import '../../data/models/microbusiness_model.dart';
 import '../../domain/entities/content.dart';
 import '../../domain/entities/microbusiness.dart';
 import '../../domain/repositories/dashboard_repository.dart';
-import '../../services/firestore_service.dart';
+import '../../services/laravel_api_service.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
-  DashboardRepositoryImpl(this._firestoreService);
+  DashboardRepositoryImpl({required LaravelApiService laravelApiService})
+      : _laravelApiService = laravelApiService;
 
-  final FirestoreService _firestoreService;
+  final LaravelApiService _laravelApiService;
 
   @override
   Stream<DashboardMetricsModel> watchMetrics() {
-    return _firestoreService.watchDashboardMetrics();
+    return Stream.multi((controller) {
+      Timer? timer;
+      Future<void> load() async {
+        if (controller.isClosed) return;
+        if (!_laravelApiService.isAuthenticated) {
+          controller.add(const DashboardMetricsModel.empty());
+          return;
+        }
+        try {
+          final results = await Future.wait([
+            _laravelApiService.fetchMobileData('users'),
+            _laravelApiService.fetchMobileData('contents'),
+            _laravelApiService.fetchMobileData('microbusinesses'),
+          ]);
+          final contents = results[1];
+          final businesses = results[2];
+          if (!controller.isClosed) {
+            controller.add(DashboardMetricsModel(
+              totalUsers: results[0].length,
+              totalContents: contents.length,
+              totalMicrobusinesses: businesses.length,
+              activeContents:
+                  contents.where((row) => row['estado'] == 'activo').length,
+              inactiveContents:
+                  contents.where((row) => row['estado'] != 'activo').length,
+              activeMicrobusinesses:
+                  businesses.where((row) => row['estado'] == 'activo').length,
+              inactiveMicrobusinesses:
+                  businesses.where((row) => row['estado'] != 'activo').length,
+            ));
+          }
+        } catch (error, stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        }
+      }
+
+      load();
+      timer = Timer.periodic(const Duration(seconds: 5), (_) => load());
+      controller.onCancel = () => timer?.cancel();
+    });
   }
 
   @override
@@ -22,28 +64,101 @@ class DashboardRepositoryImpl implements DashboardRepository {
     String? role,
     bool? isActive,
   }) {
-    return _firestoreService.watchUsers(
-      role: role,
-      isActive: isActive,
-    );
+    return Stream.multi((controller) {
+      Timer? timer;
+      Future<void> load() async {
+        if (controller.isClosed) return;
+        if (!_laravelApiService.isAuthenticated) {
+          controller.add(<AppUserModel>[]);
+          return;
+        }
+        try {
+          final rows = await _laravelApiService.fetchMobileData('users');
+          final users = rows.map(AppUserModel.fromMap).where((user) {
+            final matchesRole =
+                role == null || role.isEmpty || user.role == role;
+            final matchesActive = isActive == null || user.isActive == isActive;
+            return matchesRole && matchesActive;
+          }).toList();
+          if (!controller.isClosed) controller.add(users);
+        } catch (error, stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        }
+      }
+
+      load();
+      timer = Timer.periodic(const Duration(seconds: 5), (_) => load());
+      controller.onCancel = () => timer?.cancel();
+    });
   }
 
   @override
   Stream<List<Content>> watchContents({String? categoria}) {
-    return _firestoreService
-        .watchContents(onlyActive: false, categoria: categoria, limit: 100)
-        .map((docs) => docs
-            .map((doc) => ContentModel.fromMap(doc.id, doc.data()))
-            .toList());
+    return Stream.multi((controller) {
+      Timer? timer;
+      Future<void> load() async {
+        if (controller.isClosed) return;
+        if (!_laravelApiService.isAuthenticated) {
+          controller.add(<Content>[]);
+          return;
+        }
+        try {
+          final rows = await _laravelApiService.fetchMobileData('contents');
+          final contents = rows
+              .map((row) => ContentModel.fromMap(
+                    (row['id'] ?? '').toString(),
+                    row,
+                  ))
+              .where((content) =>
+                  categoria == null ||
+                  categoria.isEmpty ||
+                  content.categoria == categoria)
+              .toList();
+          if (!controller.isClosed) controller.add(contents);
+        } catch (error, stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        }
+      }
+
+      load();
+      timer = Timer.periodic(const Duration(seconds: 5), (_) => load());
+      controller.onCancel = () => timer?.cancel();
+    });
   }
 
   @override
   Stream<List<Microbusiness>> watchMicrobusinesses({String? categoria}) {
-    return _firestoreService
-        .watchMicrobusinesses(onlyActive: false, categoria: categoria)
-        .map((docs) => docs
-            .map((doc) => MicrobusinessModel.fromMap(doc.id, doc.data()))
-            .toList());
+    return Stream.multi((controller) {
+      Timer? timer;
+      Future<void> load() async {
+        if (controller.isClosed) return;
+        if (!_laravelApiService.isAuthenticated) {
+          controller.add(<Microbusiness>[]);
+          return;
+        }
+        try {
+          final rows =
+              await _laravelApiService.fetchMobileData('microbusinesses');
+          final businesses = rows
+              .map((row) => MicrobusinessModel.fromMap(
+                    (row['id'] ?? '').toString(),
+                    row,
+                  ))
+              .where((business) =>
+                  categoria == null ||
+                  categoria.isEmpty ||
+                  business.categoria == categoria)
+              .toList();
+          if (!controller.isClosed) controller.add(businesses);
+        } catch (error, stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        }
+      }
+
+      load();
+      timer = Timer.periodic(const Duration(seconds: 5), (_) => load());
+      controller.onCancel = () => timer?.cancel();
+    });
   }
 
   @override
@@ -51,46 +166,44 @@ class DashboardRepositoryImpl implements DashboardRepository {
     required String uid,
     required String role,
     required bool isActive,
-  }) {
-    return _firestoreService.updateUserFields(
-      uid: uid,
-      data: {
-        'rol': role,
-        'role': role,
-        'isActive': isActive,
-      },
-    );
+  }) async {
+    await _laravelApiService.saveMobileData('users/$uid', {
+      'role': role,
+      'isActive': isActive,
+    });
   }
 
   @override
   Future<void> updateContentStatus({
     required String contentId,
     required bool isActive,
-  }) {
-    return _firestoreService.updateContentFields(
-      contentId: contentId,
-      data: {'estado': isActive ? 'activo' : 'inactivo'},
-    );
+  }) async {
+    final rows = await _laravelApiService.fetchMobileData('contents');
+    final row =
+        rows.firstWhere((item) => (item['id'] ?? '').toString() == contentId);
+    await _laravelApiService.saveMobileData(
+        'contents', {...row, 'estado': isActive ? 'activo' : 'inactivo'});
   }
 
   @override
-  Future<void> deleteContent(String contentId) {
-    return _firestoreService.deleteContent(contentId);
+  Future<void> deleteContent(String contentId) async {
+    await _laravelApiService.deleteMobileData('contents', contentId);
   }
 
   @override
   Future<void> updateMicrobusinessStatus({
     required String businessId,
     required bool isActive,
-  }) {
-    return _firestoreService.updateMicrobusinessFields(
-      businessId: businessId,
-      data: {'estado': isActive ? 'activo' : 'inactivo'},
-    );
+  }) async {
+    final rows = await _laravelApiService.fetchMobileData('microbusinesses');
+    final row =
+        rows.firstWhere((item) => (item['id'] ?? '').toString() == businessId);
+    await _laravelApiService.saveMobileData('microbusinesses',
+        {...row, 'estado': isActive ? 'activo' : 'inactivo'});
   }
 
   @override
-  Future<void> deleteMicrobusiness(String businessId) {
-    return _firestoreService.deleteMicrobusiness(businessId);
+  Future<void> deleteMicrobusiness(String businessId) async {
+    await _laravelApiService.deleteMobileData('microbusinesses', businessId);
   }
 }

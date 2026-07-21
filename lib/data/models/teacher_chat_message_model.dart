@@ -38,4 +38,16 @@ class TeacherChatMessageModel {
       isTeacher: data['isTeacher'] == true,
     );
   }
+
+  factory TeacherChatMessageModel.fromJson(Map<String, dynamic> data) {
+    return TeacherChatMessageModel(
+      id: (data['id'] ?? '').toString(),
+      senderId: (data['senderId'] ?? '').toString(),
+      senderName: (data['senderName'] ?? '').toString(),
+      text: (data['text'] ?? '').toString(),
+      sentAt: DateTime.tryParse((data['sentAt'] ?? '').toString())?.toLocal() ??
+          DateTime.now(),
+      isTeacher: data['isTeacher'] == true,
+    );
+  }
 }

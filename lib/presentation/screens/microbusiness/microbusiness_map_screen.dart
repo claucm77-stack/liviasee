@@ -209,7 +209,7 @@ class _MicrobusinessMapScreenState
                   child: OutlinedButton.icon(
                     onPressed: () => openMapsUri(mapsDirectionsUri(business)),
                     icon: const Icon(Icons.directions_outlined),
-                    label: const Text('Llegar'),
+                    label: const Text('Cómo llegar'),
                   ),
                 ),
               ],

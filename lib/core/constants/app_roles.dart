@@ -73,10 +73,10 @@ class AppRoles {
       isDocenteAdmin(role) || isAdminTi(role);
 
   static bool canCreateContent(String? role) =>
-      isDocente(role) || isDocenteAdmin(role);
+      isDocente(role) || isDocenteAdmin(role) || isAdminTi(role);
 
   static bool canModerateForums(String? role) =>
-      isDocente(role) || isDocenteAdmin(role);
+      isDocente(role) || isDocenteAdmin(role) || isAdminTi(role);
 
   static bool canManageOwnBusiness(String? role) => isMicroempresario(role);
 
@@ -101,5 +101,8 @@ class AppRoles {
   static bool canViewContent(String? role) => all.contains(normalize(role));
 
   static bool canUseForums(String? role) =>
-      isMicroempresario(role) || isDocente(role) || isDocenteAdmin(role);
+      isMicroempresario(role) ||
+      isDocente(role) ||
+      isDocenteAdmin(role) ||
+      isAdminTi(role);
 }

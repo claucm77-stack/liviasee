@@ -8,6 +8,7 @@ class Microbusiness extends Model
 {
     protected $fillable = [
         'name',
+        'external_id',
         'description',
         'category',
         'address',
@@ -15,6 +16,7 @@ class Microbusiness extends Model
         'longitude',
         'maps_url',
         'image_url',
+        'image_path',
         'owner_id',
         'contact',
         'schedule',
@@ -23,7 +25,17 @@ class Microbusiness extends Model
         'favorites',
         'average_rating',
         'ratings_count',
+        'custom_fields',
     ];
+
+    public function imageUrl(): string
+    {
+        if ($this->image_path) {
+            return route('api.microbusiness-image', $this);
+        }
+
+        return (string) ($this->image_url ?? '');
+    }
 
     protected $casts = [
         'latitude' => 'float',
@@ -32,6 +44,7 @@ class Microbusiness extends Model
         'favorites' => 'array',
         'average_rating' => 'float',
         'ratings_count' => 'integer',
+        'custom_fields' => 'array',
     ];
 
     public function isActive(): bool

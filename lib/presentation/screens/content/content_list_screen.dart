@@ -21,49 +21,31 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
   static const _contentGroups = [
     _ContentGroup(
       title: 'Conferencia en vivo',
-      detailWhenEmpty: '(No hay actividad en el momento)',
+      detailWhenEmpty: 'Sin contenidos',
       imageUrl:
           'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=300&q=80',
       icon: Icons.live_tv_outlined,
     ),
     _ContentGroup(
       title: 'Repositorio en video',
-      detailWhenEmpty: '(37 Resultados)',
+      detailWhenEmpty: 'Sin contenidos',
       imageUrl:
           'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=300&q=80',
       icon: Icons.play_circle_outline,
     ),
     _ContentGroup(
       title: 'Artículos Relacionados',
-      detailWhenEmpty: '(190 Resultados)',
+      detailWhenEmpty: 'Sin contenidos',
       imageUrl:
           'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=300&q=80',
       icon: Icons.article_outlined,
     ),
     _ContentGroup(
       title: 'Cronograma Actividades',
-      detailWhenEmpty: '(20 Eventos programados)',
+      detailWhenEmpty: 'Sin contenidos',
       imageUrl:
           'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=300&q=80',
       icon: Icons.event_note_outlined,
-    ),
-  ];
-
-  static const _fallbackPopular = [
-    _PopularArticle(
-      title: 'Qué es un Insight',
-      author: 'Juan David Rodríguez',
-      source: 'Univ. Central',
-    ),
-    _PopularArticle(
-      title: 'Qué es un Insight',
-      author: 'Juan David Rodríguez',
-      source: 'Univ. Central',
-    ),
-    _PopularArticle(
-      title: 'Marketing para crecer',
-      author: 'Equipo Livi@se',
-      source: 'San Martín',
     ),
   ];
 
@@ -151,21 +133,23 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                     minHeight: 3,
                   ),
                 ),
-              ..._contentGroups.map(
-                (group) => Padding(
+              ..._contentGroups.map((group) {
+                final groupItems = _itemsForGroup(group, filteredContents);
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _ContentGroupCard(
                     group: group,
-                    count: _itemsForGroup(group, filteredContents).length,
+                    count: groupItems.length,
+                    imageUrl: _firstContentImage(groupItems) ?? group.imageUrl,
                     onTap: () => _showGroup(
                       context,
                       group,
-                      _itemsForGroup(group, filteredContents),
+                      groupItems,
                       currentUserId,
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
               if (latestContents.isNotEmpty) ...[
                 const SizedBox(height: 32),
                 Text(
@@ -208,7 +192,7 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
-                    'No se pudieron cargar contenidos reales. Se muestran ejemplos de referencia.',
+                    'No se pudieron cargar los contenidos publicados.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: const Color(0xFF8A8A8A),
                         ),
@@ -220,10 +204,10 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                   child: Center(child: Text('Sin coincidencias.')),
                 )
               else if (popular.isEmpty)
-                ..._fallbackPopular.map(
-                  (article) => Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _PopularArticleTile(article: article),
+                const Padding(
+                  padding: EdgeInsets.only(top: 18),
+                  child: Center(
+                    child: Text('No hay artículos publicados.'),
                   ),
                 )
               else
@@ -289,6 +273,14 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
           (item) => item.categoria.toLowerCase().contains('conferencia'));
     }
     return filtered;
+  }
+
+  String? _firstContentImage(List<Content> contents) {
+    for (final item in contents) {
+      final image = item.imagen.trim();
+      if (image.isNotEmpty) return image;
+    }
+    return null;
   }
 
   void _showGroup(
@@ -410,6 +402,19 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
               children: [
                 Text(item.titulo,
                     style: Theme.of(context).textTheme.titleLarge),
+                if (item.imagen.trim().isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(
+                      item.imagen,
+                      width: double.infinity,
+                      height: 220,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Text(item.contenido.trim().isEmpty
                     ? item.descripcion
@@ -427,11 +432,13 @@ class _ContentGroupCard extends StatelessWidget {
   const _ContentGroupCard({
     required this.group,
     required this.count,
+    required this.imageUrl,
     required this.onTap,
   });
 
   final _ContentGroup group;
   final int count;
+  final String imageUrl;
   final VoidCallback onTap;
 
   @override
@@ -455,7 +462,7 @@ class _ContentGroupCard extends StatelessWidget {
                   left: Radius.circular(12),
                 ),
                 child: Image.network(
-                  group.imageUrl,
+                  imageUrl,
                   width: 84,
                   height: 76,
                   fit: BoxFit.cover,
@@ -535,6 +542,35 @@ class _PopularContentTile extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 2),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: item.imagen.trim().isEmpty
+              ? Container(
+                  width: 58,
+                  height: 52,
+                  color: const Color(0xFFE6E4E4),
+                  child: const Icon(
+                    Icons.image_outlined,
+                    color: Color(0xFF8A8A8A),
+                  ),
+                )
+              : Image.network(
+                  item.imagen,
+                  width: 58,
+                  height: 52,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 58,
+                    height: 52,
+                    color: const Color(0xFFE6E4E4),
+                    child: const Icon(
+                      Icons.broken_image_outlined,
+                      color: Color(0xFF8A8A8A),
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: InkWell(
             onTap: onOpen,
@@ -588,53 +624,6 @@ class _PopularContentTile extends StatelessWidget {
   }
 }
 
-class _PopularArticleTile extends StatelessWidget {
-  const _PopularArticleTile({required this.article});
-
-  final _PopularArticle article;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.bookmark, color: Color(0xFF9D9D9D), size: 34),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                article.title,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                article.author,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF7A7A7A),
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          article.source,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.black,
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-              ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ContentGroup {
   const _ContentGroup({
     required this.title,
@@ -647,16 +636,4 @@ class _ContentGroup {
   final String detailWhenEmpty;
   final String imageUrl;
   final IconData icon;
-}
-
-class _PopularArticle {
-  const _PopularArticle({
-    required this.title,
-    required this.author,
-    required this.source,
-  });
-
-  final String title;
-  final String author;
-  final String source;
 }

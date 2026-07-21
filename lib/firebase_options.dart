@@ -47,13 +47,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC2liGU51tJCRC7UC-hWieB4Uk-JBrVT-c',
-    appId: '1:1036525008938:web:669b50ee0aef69dda76b53',
-    messagingSenderId: '1036525008938',
-    projectId: 'mironegocios-app',
-    authDomain: 'mironegocios-app.firebaseapp.com',
-    storageBucket: 'mironegocios-app.firebasestorage.app',
-    measurementId: 'G-5P6T3G5FZJ',
+    apiKey: 'AIzaSyD-OViPtdhlA2k6cp5ZSlGOp46O_aSI1oU',
+    appId: '1:448369198333:web:09b0bcb70241849c41ea94',
+    messagingSenderId: '448369198333',
+    projectId: 'liviase-af055',
+    authDomain: 'liviase-af055.firebaseapp.com',
+    storageBucket: 'liviase-af055.firebasestorage.app',
+    measurementId: 'G-DKW7QNTK03',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

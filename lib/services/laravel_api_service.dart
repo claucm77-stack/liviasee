@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../core/constants/app_config.dart';
 import '../core/constants/app_roles.dart';
+import '../data/models/teacher_chat_message_model.dart';
 
 /// Service for interacting with Laravel API.
 /// Provides authentication, session management, and data access.
@@ -31,6 +33,82 @@ class LaravelApiService {
 
   /// Check if user is authenticated
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
+
+  Future<AuthResponse> exchangeFirebaseToken(String idToken) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/auth/firebase'),
+      headers: _headers(withAuth: false),
+      body: jsonEncode({'id_token': idToken}),
+    );
+    final authResponse = AuthResponse.fromJson(_handleResponse(response));
+    _token = authResponse.token;
+    return authResponse;
+  }
+
+  Future<Map<String, dynamic>> uploadProfilePhoto({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    if (!isAuthenticated) {
+      throw StateError('La sesión con Laravel no está disponible.');
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/mobile/profile/photo'),
+    )
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+      })
+      ..files.add(http.MultipartFile.fromBytes(
+        'photo',
+        bytes,
+        filename: fileName,
+      ));
+
+    final streamedResponse = await request.send().timeout(
+          const Duration(seconds: 30),
+        );
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = _handleResponse(response) as Map<String, dynamic>;
+    final data = decoded['data'];
+    return data is Map<String, dynamic> ? data : decoded;
+  }
+
+  Future<Map<String, dynamic>> uploadMicrobusinessImage({
+    required String businessId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    if (!isAuthenticated) {
+      throw StateError('La sesión con Laravel no está disponible.');
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(
+        '$_baseUrl/mobile/microbusinesses/${Uri.encodeComponent(businessId)}/image',
+      ),
+    )
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+      })
+      ..files.add(http.MultipartFile.fromBytes(
+        'image',
+        bytes,
+        filename: fileName,
+      ));
+
+    final streamedResponse = await request.send().timeout(
+          const Duration(seconds: 30),
+        );
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = _handleResponse(response) as Map<String, dynamic>;
+    final data = decoded['data'];
+    return data is Map<String, dynamic> ? data : decoded;
+  }
 
   /// Get common headers with optional auth
   Map<String, String> _headers({bool withAuth = true}) {
@@ -262,6 +340,157 @@ class LaravelApiService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> fetchContentCategories() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/content-categories'),
+      headers: _headers(withAuth: false),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Error al obtener categorías: ${response.statusCode}');
+    }
+    final decoded = _decodeJson(response.body);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((row) => row.map((k, v) => MapEntry(k.toString(), v)))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMobileData(String resource) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/mobile/$resource'),
+      headers: _headers(),
+    );
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((row) => row.map((key, value) => MapEntry(key.toString(), value)))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTeachers() =>
+      fetchMobileData('teachers');
+
+  Future<List<Map<String, dynamic>>> fetchForumTopics() =>
+      fetchMobileData('forums');
+
+  Stream<List<Map<String, dynamic>>> watchForumTopics() async* {
+    while (true) {
+      yield await fetchForumTopics();
+      await Future<void>.delayed(const Duration(seconds: 3));
+    }
+  }
+
+  Future<Map<String, dynamic>> createForumTopic({
+    required String title,
+    required String category,
+    required String teacherId,
+  }) =>
+      saveMobileData('forums', {
+        'title': title,
+        'category': category,
+        'teacher_id': teacherId,
+      });
+
+  Future<Map<String, dynamic>> replyForumTopic({
+    required String topicId,
+    required String text,
+  }) =>
+      saveMobileData(
+        'forums/${Uri.encodeComponent(topicId)}/replies',
+        {'text': text},
+      );
+
+  Future<Map<String, dynamic>> saveMobileData(
+    String resource,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/mobile/$resource'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! Map) return <String, dynamic>{};
+    return data.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  Future<List<TeacherChatMessageModel>> fetchTeacherMessages({
+    required String teacherId,
+    required String teacherName,
+    required String teacherArea,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/mobile/teacher-chats/${Uri.encodeComponent(teacherId)}/messages',
+    ).replace(queryParameters: {
+      'teacher_name': teacherName,
+      'teacher_area': teacherArea,
+    });
+    final response = await _client.get(uri, headers: _headers());
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((row) => row.map((key, value) => MapEntry(key.toString(), value)))
+        .map(TeacherChatMessageModel.fromJson)
+        .toList();
+  }
+
+  Stream<List<TeacherChatMessageModel>> watchTeacherMessages({
+    required String teacherId,
+    required String teacherName,
+    required String teacherArea,
+  }) async* {
+    while (true) {
+      yield await fetchTeacherMessages(
+        teacherId: teacherId,
+        teacherName: teacherName,
+        teacherArea: teacherArea,
+      );
+      await Future<void>.delayed(const Duration(seconds: 3));
+    }
+  }
+
+  Future<TeacherChatMessageModel> sendTeacherMessage({
+    required String teacherId,
+    required String teacherName,
+    required String teacherArea,
+    required String text,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$_baseUrl/mobile/teacher-chats/${Uri.encodeComponent(teacherId)}/messages',
+      ),
+      headers: _headers(),
+      body: jsonEncode({
+        'teacher_name': teacherName,
+        'teacher_area': teacherArea,
+        'text': text,
+      }),
+    );
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! Map) {
+      throw const FormatException('Laravel no devolvió el mensaje guardado.');
+    }
+    return TeacherChatMessageModel.fromJson(
+      data.map((key, value) => MapEntry(key.toString(), value)),
+    );
+  }
+
+  Future<void> deleteMobileData(String resource, String id) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl/mobile/$resource/${Uri.encodeComponent(id)}'),
+      headers: _headers(),
+    );
+    _handleResponse(response);
+  }
+
   Future<List<MicrobusinessFieldDefinition>> fetchMicrobusinessFields() async {
     final response = await _client.get(
       Uri.parse('$_baseUrl/microbusiness-fields'),
@@ -301,6 +530,7 @@ class User {
   final String name;
   final String email;
   final String role;
+  final String photoUrl;
   final String roleDisplayName;
   final bool isActive;
   final DateTime? createdAt;
@@ -310,6 +540,7 @@ class User {
     required this.name,
     required this.email,
     required this.role,
+    required this.photoUrl,
     required this.roleDisplayName,
     required this.isActive,
     this.createdAt,
@@ -322,6 +553,7 @@ class User {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       role: role,
+      photoUrl: (json['photo_url'] ?? json['photoUrl'] ?? '').toString(),
       roleDisplayName:
           json['role_display_name'] as String? ?? AppRoles.label(role),
       isActive: json['is_active'] as bool? ?? true,

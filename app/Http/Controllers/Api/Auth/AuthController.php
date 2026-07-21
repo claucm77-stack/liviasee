@@ -5,16 +5,75 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\FirebaseTokenService;
+use App\Constants\Roles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Main authentication controller handling login, logout, and session management.
  */
 class AuthController extends Controller
 {
+    public function firebase(Request $request, FirebaseTokenService $firebase): JsonResponse
+    {
+        $validated = $request->validate(['id_token' => ['required', 'string']]);
+
+        try {
+            $identity = $firebase->verify($validated['id_token']);
+        } catch (Throwable) {
+            return response()->json(['message' => 'Token de Firebase inválido.'], 401);
+        }
+
+        if ($identity['email'] === '') {
+            return response()->json(['message' => 'La cuenta Firebase no tiene correo.'], 422);
+        }
+
+        $user = User::query()
+            ->where('firebase_uid', $identity['uid'])
+            ->orWhere('email', $identity['email'])
+            ->first();
+
+        if ($user) {
+            $user->update(['firebase_uid' => $identity['uid']]);
+        } else {
+            $user = User::query()->create([
+                'name' => Str::before($identity['email'], '@'),
+                'email' => $identity['email'],
+                'password' => Hash::make(Str::random(48)),
+                'firebase_uid' => $identity['uid'],
+                'role' => Roles::DEFAULT,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]);
+        }
+
+        if (! $user->is_active) {
+            return response()->json(['message' => 'La cuenta está desactivada.'], 403);
+        }
+
+        $token = $user->createToken('firebase-app', ['*'], now()->addHours(24));
+
+        return response()->json([
+            'message' => 'Sesión Firebase vinculada.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'photo_url' => $user->photoUrl(),
+                'role_display_name' => $user->getRoleDisplayName(),
+                'is_active' => $user->is_active,
+            ],
+            'token' => $token->plainTextToken,
+            'expires_at' => $token->accessToken->expires_at,
+        ]);
+    }
+
     /**
      * Login user and create token.
      * 
@@ -104,6 +163,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
             ],
             'token' => $token->plainTextToken,
@@ -155,6 +215,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
+            'photo_url' => $user->photoUrl(),
             'role_display_name' => $user->getRoleDisplayName(),
             'is_active' => $user->is_active,
             'created_at' => $user->created_at,
@@ -192,6 +253,16 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Token refrescado',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'photo_url' => $user->photoUrl(),
+                'role_display_name' => $user->getRoleDisplayName(),
+                'is_active' => $user->is_active,
+                'created_at' => $user->created_at,
+            ],
             'token' => $newToken->plainTextToken,
             'expires_at' => $newToken->accessToken->expires_at,
         ]);

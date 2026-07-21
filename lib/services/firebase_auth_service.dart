@@ -4,14 +4,20 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseAuthService {
   final FirebaseAuth _firebaseAuth;
-  final GoogleSignIn _googleSignIn;
+  final GoogleSignIn? _googleSignIn;
 
   FirebaseAuthService(this._firebaseAuth)
-      : _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+      : _googleSignIn =
+            kIsWeb ? null : GoogleSignIn(scopes: const ['email', 'profile']);
 
   Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();
 
   User? get currentUser => _firebaseAuth.currentUser;
+
+  Future<String?> getIdToken() async {
+    final user = _firebaseAuth.currentUser;
+    return await user?.getIdToken(true);
+  }
 
   Future<UserCredential> signIn({
     required String email,
@@ -41,7 +47,7 @@ class FirebaseAuthService {
       return _firebaseAuth.signInWithPopup(provider);
     }
 
-    final googleUser = await _googleSignIn.signIn();
+    final googleUser = await _googleSignIn!.signIn();
     if (googleUser == null) {
       throw FirebaseAuthException(
         code: 'google-sign-in-cancelled',
@@ -63,7 +69,7 @@ class FirebaseAuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    await _googleSignIn?.signOut();
     await _firebaseAuth.signOut();
   }
 }

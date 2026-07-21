@@ -23,12 +23,23 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'firebase_uid',
+        'photo_url',
+        'photo_path',
         'name',
         'email',
         'password',
         'role',
         'is_active',
     ];
+
+    public function photoUrl(): string
+    {
+        if ($this->photo_path) {
+            return route('api.profile-photo', $this);
+        }
+
+        return (string) ($this->photo_url ?? '');
+    }
 
     /**
      * The attributes that should be hidden for serialization.

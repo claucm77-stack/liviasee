@@ -31,10 +31,7 @@ class ContentRepositoryImpl implements ContentRepository {
     );
 
     final model = ContentModel.fromEntity(content);
-    await _firestoreService.setContent(
-      id: model.id,
-      data: model.toMap(),
-    );
+    await _saveToLaravelAndCache(model);
   }
 
   @override
@@ -55,10 +52,7 @@ class ContentRepositoryImpl implements ContentRepository {
     );
 
     final model = ContentModel.fromEntity(content);
-    await _firestoreService.setContent(
-      id: model.id,
-      data: model.toMap(),
-    );
+    await _saveToLaravelAndCache(model);
   }
 
   @override
@@ -78,14 +72,27 @@ class ContentRepositoryImpl implements ContentRepository {
       existingContent: existing,
     );
 
+    await _laravelApiService.deleteMobileData('contents', contentId);
     await _firestoreService.deleteContent(contentId);
   }
 
   @override
   Future<Content?> getContentById(String contentId) async {
+    if (_laravelApiService.isAuthenticated) {
+      try {
+        final rows = await _laravelApiService.fetchMobileData('contents');
+        for (final row in rows) {
+          if ((row['id'] ?? '').toString() == contentId) {
+            return ContentModel.fromMap(contentId, row);
+          }
+        }
+      } catch (_) {
+        // Use the local Firestore cache only if Laravel is unavailable.
+      }
+    }
     final map = await _firestoreService.getContentById(contentId);
-    if (map == null) return null;
-    return ContentModel.fromMap(contentId, map);
+    if (map != null) return ContentModel.fromMap(contentId, map);
+    return null;
   }
 
   @override
@@ -97,6 +104,8 @@ class ContentRepositoryImpl implements ContentRepository {
     return Stream.multi((controller) {
       StreamSubscription<List<QueryDocumentSnapshot<Map<String, dynamic>>>>?
           firestoreSub;
+      Timer? apiTimer;
+      var laravelLoaded = false;
 
       Future<void> loadFromFirestore() async {
         final onlyActive = AppRoles.isMicroempresario(currentUserRole);
@@ -108,13 +117,16 @@ class ContentRepositoryImpl implements ContentRepository {
 
         firestoreSub = source.listen(
           (docs) {
-            controller.add(
-              docs
-                  .map((doc) => ContentModel.fromMap(doc.id, doc.data()))
-                  .toList(),
-            );
+            if (!laravelLoaded) {
+              controller.add(
+                docs
+                    .map((doc) => ContentModel.fromMap(doc.id, doc.data()))
+                    .toList(),
+              );
+            }
           },
           onError: (Object error, StackTrace stackTrace) {
+            if (laravelLoaded) return;
             if (error is FirebaseException &&
                 error.code == 'permission-denied') {
               controller.add(<Content>[]);
@@ -125,7 +137,7 @@ class ContentRepositoryImpl implements ContentRepository {
         );
       }
 
-      () async {
+      Future<void> loadLaravel() async {
         try {
           final apiContents = await _fetchApiContents(
             limit: limit,
@@ -133,21 +145,22 @@ class ContentRepositoryImpl implements ContentRepository {
           );
 
           if (controller.isClosed) return;
-
-          if (apiContents.isNotEmpty) {
-            controller.add(apiContents);
-            return;
-          }
+          laravelLoaded = true;
+          controller.add(apiContents);
         } catch (_) {
           // Si la API publicada no responde, se conserva Firestore como respaldo.
         }
+      }
 
-        if (!controller.isClosed) {
-          await loadFromFirestore();
-        }
+      () async {
+        await loadLaravel();
+        if (!controller.isClosed) await loadFromFirestore();
       }();
+      apiTimer =
+          Timer.periodic(const Duration(seconds: 5), (_) => loadLaravel());
 
       controller.onCancel = () async {
+        apiTimer?.cancel();
         await firestoreSub?.cancel();
       };
     });
@@ -199,7 +212,9 @@ class ContentRepositoryImpl implements ContentRepository {
     String? categoria,
   }) async {
     final perPage = categoria == null || categoria.isEmpty ? limit : 100;
-    final rows = await _laravelApiService.fetchContents(perPage: perPage);
+    final rows = _laravelApiService.isAuthenticated
+        ? await _laravelApiService.fetchMobileData('contents')
+        : await _laravelApiService.fetchContents(perPage: perPage);
     final contents = rows
         .map(
       (row) => ContentModel.fromMap(
@@ -214,6 +229,21 @@ class ContentRepositoryImpl implements ContentRepository {
 
     if (contents.length <= limit) return contents;
     return contents.take(limit).toList();
+  }
+
+  Future<void> _saveToLaravelAndCache(ContentModel model) async {
+    if (!_laravelApiService.isAuthenticated) {
+      throw StateError('La sesión con Laravel no está disponible.');
+    }
+    final saved = await _laravelApiService.saveMobileData(
+      'contents',
+      model.toMap(),
+    );
+    final id = (saved['id'] ?? model.id).toString();
+    await _firestoreService.setContent(
+      id: id,
+      data: ContentModel.fromMap(id, saved).toMap(),
+    );
   }
 
   @override

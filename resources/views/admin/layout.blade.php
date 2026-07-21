@@ -29,16 +29,17 @@
                 <div>
                     <div class="flex flex-col gap-2 md:items-end">
                         <nav class="sanmartin-admin-nav flex flex-wrap items-center justify-start gap-1 text-sm md:justify-end">
+                            <a href="{{ route('dashboard') }}">Dashboard</a>
                             @if (auth()->user()?->isAdmin())
                                 <a href="{{ route('admin.users.index') }}">Usuarios</a>
                                 <a href="{{ route('admin.microbusiness-fields.index') }}">Campos</a>
                                 <a href="{{ route('admin.microbusinesses.index') }}">Micronegocios</a>
                                 <a href="{{ route('admin.contents.index') }}">Contenidos</a>
+                                <a href="{{ route('admin.content-categories.index') }}">Categorías</a>
                                 <a href="{{ route('admin.entities.index') }}">Entidades</a>
                                 <a href="{{ route('admin.logs.index') }}">Logs</a>
                                 <a href="{{ route('admin.settings.edit') }}">Configuración</a>
                             @endif
-                            <a href="{{ route('dashboard') }}">Dashboard</a>
                         </nav>
 
                         @auth

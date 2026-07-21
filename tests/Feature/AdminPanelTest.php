@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Constants\Roles;
+use App\Models\Content;
+use App\Models\ContentCategory;
 use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Services\FirebaseUserService;
@@ -58,6 +60,29 @@ class AdminPanelTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.users.index'));
 
         $response->assertOk();
+    }
+
+    public function test_admin_can_edit_content_assigned_to_an_inactive_category(): void
+    {
+        $admin = User::factory()->create([
+            'role' => Roles::ADMIN_TI,
+            'is_active' => true,
+        ]);
+        $category = ContentCategory::query()->create([
+            'name' => 'Categoría inactiva',
+            'slug' => 'categoria-inactiva',
+            'is_active' => false,
+        ]);
+        $content = Content::query()->create([
+            'title' => 'Contenido de prueba',
+            'slug' => 'contenido-de-prueba',
+            'content_category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.contents.edit', $content));
+
+        $response->assertOk();
+        $response->assertSee('Categoría inactiva');
     }
 
     public function test_non_admin_cannot_access_admin_routes(): void

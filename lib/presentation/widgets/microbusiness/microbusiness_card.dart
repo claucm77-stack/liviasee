@@ -8,7 +8,6 @@ class MicrobusinessCard extends StatelessWidget {
     super.key,
     required this.business,
     required this.onTap,
-    required this.onViewMap,
     required this.onHowToGet,
     required this.onToggleFavorite,
     required this.isFavorite,
@@ -16,7 +15,6 @@ class MicrobusinessCard extends StatelessWidget {
 
   final Microbusiness business;
   final VoidCallback onTap;
-  final VoidCallback onViewMap;
   final VoidCallback onHowToGet;
   final VoidCallback onToggleFavorite;
   final bool isFavorite;
@@ -63,6 +61,11 @@ class MicrobusinessCard extends StatelessWidget {
                             ),
                       ),
                     ),
+                    const SizedBox(height: 5),
+                    _BusinessRating(
+                      rating: business.ratingPromedio,
+                      totalRatings: business.totalCalificaciones,
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       business.descripcion,
@@ -75,14 +78,9 @@ class MicrobusinessCard extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         OutlinedButton.icon(
-                          onPressed: onViewMap,
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Mapa'),
-                        ),
-                        OutlinedButton.icon(
                           onPressed: onHowToGet,
                           icon: const Icon(Icons.directions_outlined),
-                          label: const Text('Llegar'),
+                          label: const Text('Cómo llegar'),
                         ),
                       ],
                     ),
@@ -100,6 +98,49 @@ class MicrobusinessCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BusinessRating extends StatelessWidget {
+  const _BusinessRating({
+    required this.rating,
+    required this.totalRatings,
+  });
+
+  final double? rating;
+  final int? totalRatings;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedRating = (rating ?? 0).clamp(0, 5).toDouble();
+    final count = totalRatings ?? 0;
+    final countLabel = count == 1 ? 'calificación' : 'calificaciones';
+
+    return Wrap(
+      spacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final remaining = normalizedRating - index;
+            final icon = remaining >= 0.75
+                ? Icons.star
+                : remaining >= 0.25
+                    ? Icons.star_half
+                    : Icons.star_border;
+            return Icon(icon, color: Colors.amber.shade700, size: 17);
+          }),
+        ),
+        Text(
+          '${normalizedRating.toStringAsFixed(1)} · $count $countLabel',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
     );
   }
 }

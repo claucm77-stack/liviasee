@@ -29,7 +29,7 @@ class _TeacherChatScreenState extends ConsumerState<TeacherChatScreen> {
   final _scrollCtrl = ScrollController();
   bool _isSending = false;
   String? _conversationKey;
-  Future<void>? _conversationFuture;
+  Stream<List<TeacherChatMessageModel>>? _messagesStream;
 
   @override
   void dispose() {
@@ -50,9 +50,7 @@ class _TeacherChatScreenState extends ConsumerState<TeacherChatScreen> {
 
     setState(() => _isSending = true);
     try {
-      await ref.read(firestoreServiceProvider).sendTeacherMessage(
-            userId: user.uid,
-            userName: user.name.trim().isEmpty ? user.email : user.name.trim(),
+      await ref.read(laravelApiServiceProvider).sendTeacherMessage(
             teacherId: widget.teacherId,
             teacherName: widget.teacherName,
             teacherArea: widget.teacherArea,
@@ -91,23 +89,15 @@ class _TeacherChatScreenState extends ConsumerState<TeacherChatScreen> {
       );
     }
 
-    final messagesStream =
-        ref.watch(firestoreServiceProvider).watchTeacherMessages(
-              userId: user.uid,
-              teacherId: widget.teacherId,
-            );
     final key = '${user.uid}_${widget.teacherId}';
     if (_conversationKey != key) {
       _conversationKey = key;
-      _conversationFuture = ref
-          .watch(firestoreServiceProvider)
-          .ensureTeacherConversation(
-            userId: user.uid,
-            userName: user.name.trim().isEmpty ? user.email : user.name.trim(),
-            teacherId: widget.teacherId,
-            teacherName: widget.teacherName,
-            teacherArea: widget.teacherArea,
-          );
+      _messagesStream =
+          ref.read(laravelApiServiceProvider).watchTeacherMessages(
+                teacherId: widget.teacherId,
+                teacherName: widget.teacherName,
+                teacherArea: widget.teacherArea,
+              );
     }
 
     return Scaffold(
@@ -175,60 +165,41 @@ class _TeacherChatScreenState extends ConsumerState<TeacherChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: FutureBuilder<void>(
-              future: _conversationFuture,
-              builder: (context, conversationSnapshot) {
-                if (conversationSnapshot.connectionState ==
-                    ConnectionState.waiting) {
+            child: StreamBuilder<List<TeacherChatMessageModel>>(
+              stream: _messagesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (conversationSnapshot.hasError) {
+                if (snapshot.hasError) {
                   return const _EmptyChatState(
                     icon: Icons.cloud_off_outlined,
                     title: 'No se pudo cargar el chat',
                     message:
-                        'Revisa permisos de Firestore o conexión e intenta nuevamente.',
+                        'Revisa tu conexión con el servidor e intenta nuevamente.',
                   );
                 }
 
-                return StreamBuilder<List<TeacherChatMessageModel>>(
-                  stream: messagesStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                final messages = snapshot.data ?? const [];
+                if (messages.isEmpty) {
+                  return _EmptyChatState(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'Escribe tu primer mensaje',
+                    message:
+                        'Tu conversación con ${widget.teacherName} quedará guardada y se actualizará en tiempo real.',
+                  );
+                }
 
-                    if (snapshot.hasError) {
-                      return const _EmptyChatState(
-                        icon: Icons.cloud_off_outlined,
-                        title: 'No se pudo cargar el chat',
-                        message:
-                            'Revisa permisos de Firestore o conexión e intenta nuevamente.',
-                      );
-                    }
-
-                    final messages = snapshot.data ?? const [];
-                    if (messages.isEmpty) {
-                      return _EmptyChatState(
-                        icon: Icons.chat_bubble_outline,
-                        title: 'Escribe tu primer mensaje',
-                        message:
-                            'Tu conversación con ${widget.teacherName} quedará guardada y se actualizará en tiempo real.',
-                      );
-                    }
-
-                    _scrollToBottom();
-                    return ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final message = messages[index];
-                        final isMe = message.senderId == user.uid;
-                        return _MessageBubble(message: message, isMe: isMe);
-                      },
-                    );
+                _scrollToBottom();
+                return ListView.builder(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isMe = message.senderId == user.uid;
+                    return _MessageBubble(message: message, isMe: isMe);
                   },
                 );
               },

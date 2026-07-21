@@ -1,17 +1,21 @@
+import 'dart:async';
 import 'dart:math';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_roles.dart';
 import '../../domain/entities/microbusiness.dart';
 import '../../domain/repositories/microbusiness_repository.dart';
 import '../../services/firestore_service.dart';
+import '../../services/laravel_api_service.dart';
 import '../models/microbusiness_model.dart';
 
 class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
-  MicrobusinessRepositoryImpl(this._firestoreService);
+  MicrobusinessRepositoryImpl(
+    this._firestoreService, {
+    required LaravelApiService laravelApiService,
+  }) : _laravelApiService = laravelApiService;
 
   final FirestoreService _firestoreService;
+  final LaravelApiService _laravelApiService;
 
   @override
   Future<void> createMicrobusiness({
@@ -26,7 +30,7 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     );
 
     final model = MicrobusinessModel.fromEntity(business);
-    await _firestoreService.setMicrobusiness(id: model.id, data: model.toMap());
+    await _saveToLaravelAndCache(model);
   }
 
   @override
@@ -47,7 +51,7 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     );
 
     final model = MicrobusinessModel.fromEntity(business);
-    await _firestoreService.setMicrobusiness(id: model.id, data: model.toMap());
+    await _saveToLaravelAndCache(model);
   }
 
   @override
@@ -67,14 +71,24 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
       existingBusiness: existing,
     );
 
+    await _laravelApiService.deleteMobileData('microbusinesses', businessId);
     await _firestoreService.deleteMicrobusiness(businessId);
   }
 
   @override
   Future<Microbusiness?> getMicrobusinessById(String businessId) async {
+    if (_laravelApiService.isAuthenticated) {
+      final rows = await _laravelApiService.fetchMobileData('microbusinesses');
+      for (final row in rows) {
+        if ((row['id'] ?? '').toString() == businessId) {
+          return MicrobusinessModel.fromMap(businessId, row);
+        }
+      }
+      return null;
+    }
+
     final map = await _firestoreService.getMicrobusinessById(businessId);
-    if (map == null) return null;
-    return MicrobusinessModel.fromMap(businessId, map);
+    return map == null ? null : MicrobusinessModel.fromMap(businessId, map);
   }
 
   @override
@@ -83,39 +97,51 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     String? categoria,
     String? searchText,
   }) {
-    final onlyActive = !AppRoles.isDocenteAdmin(currentUserRole) &&
-        !AppRoles.isAdminTi(currentUserRole);
-    final source = _firestoreService.watchMicrobusinesses(
-      onlyActive: onlyActive,
-    );
-
     return Stream.multi((controller) {
-      final sub = source.listen(
-        (docs) {
-          final all = docs
-              .map((doc) => MicrobusinessModel.fromMap(doc.id, doc.data()))
-              .toList();
-
-          final filtered = _applyFilters(
-            all,
+      Timer? apiTimer;
+      Future<void> loadLaravel() async {
+        if (controller.isClosed) return;
+        if (!_laravelApiService.isAuthenticated) {
+          controller.add(<Microbusiness>[]);
+          return;
+        }
+        try {
+          final rows =
+              await _laravelApiService.fetchMobileData('microbusinesses');
+          if (controller.isClosed) return;
+          controller.add(_applyFilters(
+            rows
+                .map((row) => MicrobusinessModel.fromMap(
+                    (row['id'] ?? '').toString(), row))
+                .toList(),
             categoria: categoria,
             searchText: searchText,
-          );
-          controller.add(filtered);
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (error is FirebaseException && error.code == 'permission-denied') {
-            controller.add(<Microbusiness>[]);
-            return;
-          }
-          controller.addError(error, stackTrace);
-        },
-      );
+          ));
+        } catch (_) {}
+      }
 
-      controller.onCancel = () async {
-        await sub.cancel();
+      loadLaravel();
+      apiTimer =
+          Timer.periodic(const Duration(seconds: 5), (_) => loadLaravel());
+      controller.onCancel = () {
+        apiTimer?.cancel();
       };
     });
+  }
+
+  Future<void> _saveToLaravelAndCache(MicrobusinessModel model) async {
+    if (!_laravelApiService.isAuthenticated) {
+      throw StateError('La sesión con Laravel no está disponible.');
+    }
+    final saved = await _laravelApiService.saveMobileData('microbusinesses', {
+      'id': model.id,
+      ...model.toMap(),
+    });
+    final id = (saved['id'] ?? model.id).toString();
+    await _firestoreService.setMicrobusiness(
+      id: id,
+      data: MicrobusinessModel.fromMap(id, saved).toMap(),
+    );
   }
 
   @override
@@ -126,23 +152,18 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     final business = await getMicrobusinessById(businessId);
     if (business == null) throw Exception('Micronegocio no encontrado.');
 
-    if (business.favoritos.contains(userId)) {
-      await _firestoreService.removeUserFromMicrobusinessArrayField(
-        businessId: businessId,
-        field: 'favoritos',
-        userId: userId,
-      );
-    } else {
-      await _firestoreService.addUserToMicrobusinessArrayField(
-        businessId: businessId,
-        field: 'favoritos',
-        userId: userId,
-      );
-    }
+    final saved = await _laravelApiService.saveMobileData(
+      'microbusinesses/${Uri.encodeComponent(businessId)}/favorite',
+      const {},
+    );
+    await _firestoreService.setMicrobusiness(
+      id: businessId,
+      data: MicrobusinessModel.fromMap(businessId, saved).toMap(),
+    );
   }
 
   @override
-  Future<void> rateBusiness({
+  Future<Microbusiness> rateBusiness({
     required String businessId,
     required double rating,
   }) async {
@@ -153,18 +174,11 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     final business = await getMicrobusinessById(businessId);
     if (business == null) throw Exception('Micronegocio no encontrado.');
 
-    final total = business.totalCalificaciones ?? 0;
-    final currentAverage = business.ratingPromedio ?? 0;
-    final newTotal = total + 1;
-    final newAverage = ((currentAverage * total) + rating) / newTotal;
-
-    await _firestoreService.updateMicrobusinessFields(
-      businessId: businessId,
-      data: {
-        'ratingPromedio': double.parse(newAverage.toStringAsFixed(2)),
-        'totalCalificaciones': newTotal,
-      },
+    final saved = await _laravelApiService.saveMobileData(
+      'microbusinesses/${Uri.encodeComponent(businessId)}/rate',
+      {'rating': rating},
     );
+    return MicrobusinessModel.fromMap(businessId, saved);
   }
 
   @override
@@ -176,15 +190,17 @@ class MicrobusinessRepositoryImpl implements MicrobusinessRepository {
     String? categoria,
     String? searchText,
   }) async {
-    final docs = await _firestoreService
-        .watchMicrobusinesses(
-          onlyActive: !AppRoles.isDocenteAdmin(currentUserRole) &&
-              !AppRoles.isAdminTi(currentUserRole),
-        )
-        .first;
-
-    final all = docs
-        .map((doc) => MicrobusinessModel.fromMap(doc.id, doc.data()))
+    if (!_laravelApiService.isAuthenticated) return const [];
+    final rows = await _laravelApiService.fetchMobileData('microbusinesses');
+    final all = rows
+        .map((row) => MicrobusinessModel.fromMap(
+              (row['id'] ?? '').toString(),
+              row,
+            ))
+        .where((business) =>
+            AppRoles.isDocenteAdmin(currentUserRole) ||
+            AppRoles.isAdminTi(currentUserRole) ||
+            business.isActivo)
         .toList();
 
     final searched = _applyFilters(

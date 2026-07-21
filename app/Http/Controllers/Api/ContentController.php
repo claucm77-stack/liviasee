@@ -14,6 +14,7 @@ class ContentController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
         $query = Content::query()
+            ->with('contentCategory')
             ->where('status', 'publicado')
             ->orderByDesc('published_at')
             ->orderByDesc('created_at');
@@ -33,7 +34,7 @@ class ContentController extends Controller
                     'tipo' => $this->contentType($type),
                     'url' => $this->contentUrl($type, $metadata),
                     'imagen' => (string) ($payload['image_url'] ?? ''),
-                    'categoria' => $this->contentCategory($type, $payload),
+                    'categoria' => $this->contentCategory($content, $type, $payload),
                     'autorId' => '',
                     'fechaCreacion' => optional($content->created_at)?->toIso8601String(),
                     'estado' => $content->status === 'publicado' ? 'activo' : 'inactivo',
@@ -69,8 +70,10 @@ class ContentController extends Controller
         };
     }
 
-    private function contentCategory(string $type, array $payload = []): string
+    private function contentCategory(Content $content, string $type, array $payload = []): string
     {
+        $linkedCategory = trim((string) ($content->contentCategory?->name ?? ''));
+        if ($linkedCategory !== '') return $linkedCategory;
         $category = trim((string) ($payload['category'] ?? ''));
         if ($category !== '') {
             return $category;
@@ -115,7 +118,7 @@ class ContentController extends Controller
 
         return [
             'type' => $content->type,
-            'category' => $this->contentCategory((string) $content->type),
+            'category' => $content->contentCategory?->name ?? '',
             'image_url' => '',
             'data' => [
                 'body' => (string) ($content->body ?? ''),

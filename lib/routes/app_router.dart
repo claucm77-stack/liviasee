@@ -87,6 +87,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (location == '/admin-dashboard' && !AppRoles.canManageAcademic(role)) {
         return _homeByRole(user.role);
       }
+      if (location == '/soporte-ti' && !AppRoles.canManageSystem(role)) {
+        return _homeByRole(user.role);
+      }
       if (location == '/educator' && !AppRoles.isDocente(role)) {
         return _homeByRole(user.role);
       }

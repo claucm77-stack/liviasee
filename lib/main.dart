@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/utils/google_maps_loader.dart';
 import 'firebase_options.dart';
 import 'routes/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadGoogleMapsApi();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

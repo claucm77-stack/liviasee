@@ -114,6 +114,7 @@ class CategoryAdminViewModel extends StateNotifier<CategoryAdminState> {
 
     try {
       await _ref.read(categoryRepositoryProvider).saveCategory(category);
+      _refreshCategoryLists();
       state = state.copyWith(
         isSubmitting: false,
         successMessage: 'Categoría guardada.',
@@ -135,6 +136,7 @@ class CategoryAdminViewModel extends StateNotifier<CategoryAdminState> {
 
     try {
       await _ref.read(categoryRepositoryProvider).deleteCategory(categoryId);
+      _refreshCategoryLists();
       state = state.copyWith(
         isSubmitting: false,
         successMessage: 'Categoría eliminada.',
@@ -158,6 +160,13 @@ class CategoryAdminViewModel extends StateNotifier<CategoryAdminState> {
 
   void clearMessages() {
     state = state.copyWith(clearError: true, clearSuccess: true);
+  }
+
+  void _refreshCategoryLists() {
+    _ref.invalidate(contentCategoriesProvider);
+    _ref.invalidate(activeContentCategoriesProvider);
+    _ref.invalidate(microbusinessCategoriesProvider);
+    _ref.invalidate(activeMicrobusinessCategoriesProvider);
   }
 }
 

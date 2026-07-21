@@ -8,20 +8,39 @@ import 'picked_image.dart';
 Future<PickedImageBytes?> pickImageBytes() async {
   final input = html.FileUploadInputElement()
     ..accept = 'image/*'
-    ..click();
+    ..style.display = 'none';
+  html.document.body?.append(input);
 
-  await input.onChange.first;
-  final file = input.files?.isNotEmpty == true ? input.files!.first : null;
-  if (file == null) return null;
+  try {
+    final changeFuture = input.onChange.first;
+    input.click();
+    await changeFuture;
+    final file = input.files?.isNotEmpty == true ? input.files!.first : null;
+    if (file == null) return null;
 
-  final reader = html.FileReader()..readAsArrayBuffer(file);
-  await reader.onLoad.first;
-  final result = reader.result;
-  if (result is! ByteBuffer) return null;
+    final reader = html.FileReader();
+    final loadFuture = reader.onLoad.first;
+    reader.readAsArrayBuffer(file);
+    await loadFuture;
+    final result = reader.result;
+    final Uint8List bytes;
+    if (result is ByteBuffer) {
+      bytes = Uint8List.view(result);
+    } else if (result is Uint8List) {
+      bytes = result;
+    } else if (result is List<int>) {
+      bytes = Uint8List.fromList(result);
+    } else {
+      throw StateError(
+          'El navegador no devolvió bytes válidos para la imagen.');
+    }
 
-  return PickedImageBytes(
-    bytes: Uint8List.view(result),
-    fileName: file.name,
-    mimeType: file.type.isEmpty ? 'image/jpeg' : file.type,
-  );
+    return PickedImageBytes(
+      bytes: bytes,
+      fileName: file.name,
+      mimeType: file.type.isEmpty ? 'image/jpeg' : file.type,
+    );
+  } finally {
+    input.remove();
+  }
 }

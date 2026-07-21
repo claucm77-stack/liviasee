@@ -328,15 +328,16 @@ class _CategoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: category.isActive
-            ? const Color(0xFF4C8D93)
-            : const Color(0xFFE6E4E4),
-        child: Icon(
-          category.scope == AppCategoryScope.contenidos
-              ? Icons.menu_book_outlined
-              : Icons.storefront_outlined,
-          color: category.isActive ? Colors.white : const Color(0xFF555555),
+      leading: ClipOval(
+        child: SizedBox.square(
+          dimension: 40,
+          child: category.imageUrl.trim().isEmpty
+              ? _categoryFallback(category)
+              : Image.network(
+                  category.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _categoryFallback(category),
+                ),
         ),
       ),
       title: Text(category.nombre),
@@ -363,6 +364,19 @@ class _CategoryTile extends StatelessWidget {
             icon: const Icon(Icons.delete_outline),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _categoryFallback(AppCategory category) {
+    return ColoredBox(
+      color:
+          category.isActive ? const Color(0xFF4C8D93) : const Color(0xFFE6E4E4),
+      child: Icon(
+        category.scope == AppCategoryScope.contenidos
+            ? Icons.menu_book_outlined
+            : Icons.storefront_outlined,
+        color: category.isActive ? Colors.white : const Color(0xFF555555),
       ),
     );
   }

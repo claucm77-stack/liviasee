@@ -118,25 +118,13 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
             value: business.contacto,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () =>
-                      context.push('/micronegocios/map?focusId=$businessId'),
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Mapa'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openExternalMaps(business),
-                  icon: const Icon(Icons.directions_outlined),
-                  label: const Text('Llegar'),
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _openExternalMaps(business),
+              icon: const Icon(Icons.directions_outlined),
+              label: const Text('Cómo llegar'),
+            ),
           ),
           const SizedBox(height: 12),
           Row(

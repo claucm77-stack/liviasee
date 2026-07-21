@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -79,17 +78,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final safeName =
           picked.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final storageRef = FirebaseStorage.instance.ref(
-        'profiles/${authUser.uid}/${DateTime.now().millisecondsSinceEpoch}_$safeName',
-      );
-
-      await storageRef.putData(
-        picked.bytes,
-        SettableMetadata(contentType: picked.mimeType),
-      );
-      final url = await storageRef.getDownloadURL();
+      final url = await ref
+          .read(authViewModelProvider.notifier)
+          .uploadProfilePhoto(bytes: picked.bytes, fileName: safeName);
       if (!mounted) return;
+      if (url == null || url.isEmpty) {
+        throw Exception(
+          ref.read(authViewModelProvider).errorMessage ??
+              'Laravel no pudo guardar la imagen.',
+        );
+      }
       _updateInfoSheet(sheetSetState, () => _photoCtrl.text = url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto de perfil actualizada.')),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

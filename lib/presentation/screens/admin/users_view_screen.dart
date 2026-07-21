@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../viewmodels/dashboard_viewmodel.dart';
+import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/dashboard/user_status_badge.dart';
 import '../../../core/constants/app_roles.dart';
 
@@ -15,6 +16,9 @@ class UsersViewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(dashboardViewModelProvider);
     final vm = ref.read(dashboardViewModelProvider.notifier);
+    final canEditUsers = AppRoles.canManageUsers(
+      ref.watch(authViewModelProvider).user?.role,
+    );
 
     return Column(
       children: [
@@ -117,11 +121,12 @@ class UsersViewScreen extends ConsumerWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           UserStatusBadge(isActive: isActive),
-                          IconButton(
-                            tooltip: 'Editar usuario',
-                            onPressed: () => _editUser(context, ref, user),
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
+                          if (canEditUsers)
+                            IconButton(
+                              tooltip: 'Editar usuario',
+                              onPressed: () => _editUser(context, ref, user),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
                         ],
                       ),
                     );

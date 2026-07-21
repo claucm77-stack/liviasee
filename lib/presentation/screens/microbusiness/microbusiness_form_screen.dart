@@ -1,6 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/image_bytes_picker.dart';
@@ -38,6 +39,10 @@ class _MicrobusinessFormScreenState
   MicrobusinessStatus _estado = MicrobusinessStatus.activo;
   String? _loadedBusinessId;
   String _imageUrl = '';
+  Uint8List? _pendingImageBytes;
+  String? _pendingImageFileName;
+  final String _draftBusinessId =
+      'micro_${DateTime.now().millisecondsSinceEpoch}';
   bool _isUploadingImage = false;
 
   bool get _isEditing => widget.businessId != null;
@@ -114,8 +119,9 @@ class _MicrobusinessFormScreenState
         entry.key: entry.value.text.trim(),
     };
 
+    final businessId = widget.businessId ?? _draftBusinessId;
     final business = Microbusiness(
-      id: widget.businessId ?? 'micro_${DateTime.now().millisecondsSinceEpoch}',
+      id: businessId,
       nombre: _nombreCtrl.text.trim(),
       descripcion: _descripcionCtrl.text.trim(),
       categoria: _categoria,
@@ -123,7 +129,7 @@ class _MicrobusinessFormScreenState
       latitud: latitude,
       longitud: longitude,
       mapsUrl: _mapsUrlCtrl.text.trim(),
-      imagen: _imageUrl,
+      imagen: _pendingImageBytes == null ? _imageUrl : '',
       propietarioId: current?.propietarioId ?? authUser.uid,
       contacto: _contactoCtrl.text.trim(),
       horario: _horarioCtrl.text.trim(),
@@ -150,6 +156,38 @@ class _MicrobusinessFormScreenState
       );
       return;
     }
+
+    if (_pendingImageBytes != null) {
+      setState(() => _isUploadingImage = true);
+      try {
+        final saved =
+            await ref.read(laravelApiServiceProvider).uploadMicrobusinessImage(
+                  businessId: businessId,
+                  bytes: _pendingImageBytes!,
+                  fileName: _pendingImageFileName ?? 'micronegocio.jpg',
+                );
+        if (!mounted) return;
+        setState(() {
+          _imageUrl = (saved['imagen'] ?? '').toString();
+          _pendingImageBytes = null;
+          _pendingImageFileName = null;
+        });
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'El micronegocio se guardó, pero no se pudo cargar la imagen: $error',
+            ),
+          ),
+        );
+        return;
+      } finally {
+        if (mounted) setState(() => _isUploadingImage = false);
+      }
+    }
+
+    if (!mounted) return;
     context.go('/micronegocios');
   }
 
@@ -157,30 +195,12 @@ class _MicrobusinessFormScreenState
     final picked = await pickImageBytes();
     if (picked == null) return;
 
-    setState(() => _isUploadingImage = true);
-    try {
-      final id =
-          widget.businessId ?? 'micro_${DateTime.now().millisecondsSinceEpoch}';
-      final safeName =
-          picked.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final ref = FirebaseStorage.instance.ref(
-          'microbusinesses/$id/images/${DateTime.now().millisecondsSinceEpoch}_$safeName');
-
-      await ref.putData(
-        picked.bytes,
-        SettableMetadata(contentType: picked.mimeType),
-      );
-      final url = await ref.getDownloadURL();
-      if (!mounted) return;
-      setState(() => _imageUrl = url);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo cargar la imagen: $error')),
-      );
-    } finally {
-      if (mounted) setState(() => _isUploadingImage = false);
-    }
+    final safeName =
+        picked.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    setState(() {
+      _pendingImageBytes = picked.bytes;
+      _pendingImageFileName = safeName;
+    });
   }
 
   @override
@@ -281,11 +301,16 @@ class _MicrobusinessFormScreenState
                     const SizedBox(height: 12),
                     _ImageUploadField(
                       imageUrl: _imageUrl,
+                      imageBytes: _pendingImageBytes,
                       isUploading: _isUploadingImage,
                       onPickImage: _pickAndUploadImage,
-                      onRemove: _imageUrl.isEmpty
+                      onRemove: _imageUrl.isEmpty && _pendingImageBytes == null
                           ? null
-                          : () => setState(() => _imageUrl = ''),
+                          : () => setState(() {
+                                _imageUrl = '';
+                                _pendingImageBytes = null;
+                                _pendingImageFileName = null;
+                              }),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -500,12 +525,14 @@ class _CustomFieldInputState extends State<_CustomFieldInput> {
 class _ImageUploadField extends StatelessWidget {
   const _ImageUploadField({
     required this.imageUrl,
+    required this.imageBytes,
     required this.isUploading,
     required this.onPickImage,
     required this.onRemove,
   });
 
   final String imageUrl;
+  final Uint8List? imageBytes;
   final bool isUploading;
   final VoidCallback onPickImage;
   final VoidCallback? onRemove;
@@ -522,19 +549,21 @@ class _ImageUploadField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (imageUrl.isNotEmpty) ...[
+          if (imageBytes != null || imageUrl.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.broken_image_outlined),
-                  ),
-                ),
+                child: imageBytes != null
+                    ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 10),
@@ -554,7 +583,7 @@ class _ImageUploadField extends StatelessWidget {
                   label: Text(
                     isUploading
                         ? 'Cargando imagen...'
-                        : imageUrl.isEmpty
+                        : imageUrl.isEmpty && imageBytes == null
                             ? 'Cargar imagen'
                             : 'Cambiar imagen',
                   ),

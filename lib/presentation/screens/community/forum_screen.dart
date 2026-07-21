@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,150 +15,140 @@ class ForumScreen extends ConsumerStatefulWidget {
 }
 
 class _ForumScreenState extends ConsumerState<ForumScreen> {
+  late Stream<List<Map<String, dynamic>>> _topicsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _topicsStream = ref.read(laravelApiServiceProvider).watchForumTopics();
+  }
+
   Future<void> _showQuestionDialog() async {
+    List<Map<String, dynamic>> teachers;
+    try {
+      teachers = await ref.read(laravelApiServiceProvider).fetchTeachers();
+    } catch (error) {
+      if (!mounted) return;
+      _showError('No se pudo cargar el listado de docentes: $error');
+      return;
+    }
+    if (!mounted) return;
+    if (teachers.isEmpty) {
+      _showError(
+        'No hay docentes activos. Crea o activa un usuario docente en Laravel antes de abrir el foro.',
+      );
+      return;
+    }
+
     final titleCtrl = TextEditingController();
     final categoryCtrl = TextEditingController(text: 'General');
-
-    final result = await showDialog<(String, String)>(
+    var selectedTeacherId = (teachers.first['uid'] ?? '').toString();
+    final result = await showDialog<(String, String, String)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nuevo tema'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Pregunta o tema',
-                prefixIcon: Icon(Icons.help_outline),
-              ),
-              autofocus: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Nuevo foro'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Pregunta o tema',
+                    prefixIcon: Icon(Icons.help_outline),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: categoryCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Categoría',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedTeacherId,
+                  decoration: const InputDecoration(
+                    labelText: 'Docente asociado',
+                    prefixIcon: Icon(Icons.school_outlined),
+                  ),
+                  items: teachers
+                      .map(
+                        (teacher) => DropdownMenuItem(
+                          value: (teacher['uid'] ?? '').toString(),
+                          child:
+                              Text((teacher['name'] ?? 'Docente').toString()),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => selectedTeacherId = value);
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: categoryCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tema',
-                prefixIcon: Icon(Icons.category_outlined),
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty ||
+                    selectedTeacherId.isEmpty) {
+                  return;
+                }
+                Navigator.pop(
+                  context,
+                  (
+                    titleCtrl.text.trim(),
+                    categoryCtrl.text.trim().isEmpty
+                        ? 'General'
+                        : categoryCtrl.text.trim(),
+                    selectedTeacherId,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.send_outlined),
+              label: const Text('Publicar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              if (titleCtrl.text.trim().isEmpty) return;
-              Navigator.pop(
-                context,
-                (titleCtrl.text.trim(), categoryCtrl.text.trim()),
-              );
-            },
-            icon: const Icon(Icons.send_outlined),
-            label: const Text('Publicar'),
-          ),
-        ],
       ),
     );
-
     titleCtrl.dispose();
     categoryCtrl.dispose();
+    if (result == null) return;
 
-    final user = ref.read(authViewModelProvider).user;
-    if (result == null || user == null) return;
-
-    await ref.read(firestoreServiceProvider).createForumTopic(
-          title: result.$1,
-          category: result.$2.isEmpty ? 'General' : result.$2,
-          authorId: user.uid,
-          authorName: user.name.trim().isEmpty ? user.email : user.name.trim(),
-          authorRole: AppRoles.normalize(user.role),
-        );
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tema publicado en el foro.')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final user = ref.watch(authViewModelProvider).user;
-    final canAnswer = AppRoles.canModerateForums(user?.role);
-    final canCreate = AppRoles.canUseForums(user?.role);
-
-    return AppScaffold(
-      title: 'Foros temáticos',
-      showBack: true,
-      floatingActionButton: canCreate
-          ? FloatingActionButton.extended(
-              onPressed: _showQuestionDialog,
-              icon: const Icon(Icons.add_comment_outlined),
-              label: const Text('Abrir tema'),
-            )
-          : null,
-      child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-        stream: ref.watch(firestoreServiceProvider).watchForumTopics(),
-        builder: (context, snapshot) {
-          final docs = snapshot.data ?? const [];
-
-          return ListView.separated(
-            itemCount: docs.length + 1,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return SectionHeader(
-                  title: canAnswer
-                      ? 'Consultas por resolver'
-                      : 'Consulta a docentes expertos',
-                  subtitle: canAnswer
-                      ? 'Responde preguntas y orienta a los empresarios.'
-                      : 'Abre un tema y revisa respuestas de docentes.',
-                  icon: Icons.forum_outlined,
-                );
-              }
-
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (docs.isEmpty) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('Aún no hay temas publicados.'),
-                  ),
-                );
-              }
-
-              final doc = docs[index - 1];
-              final data = doc.data();
-              return _ForumTopicCard(
-                topicId: doc.id,
-                data: data,
-                canAnswer: canAnswer,
-                onReply: () => _showReplyDialog(doc.id),
-                onContactTeacher: () => _contactTeacher(data),
-              );
-            },
+    try {
+      await ref.read(laravelApiServiceProvider).createForumTopic(
+            title: result.$1,
+            category: result.$2,
+            teacherId: result.$3,
           );
-        },
-      ),
-    );
+      if (!mounted) return;
+      setState(() {
+        _topicsStream = ref.read(laravelApiServiceProvider).watchForumTopics();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foro creado y asociado al docente.')),
+      );
+    } catch (error) {
+      if (mounted) _showError('No se pudo crear el foro: $error');
+    }
   }
 
   Future<void> _showReplyDialog(String topicId) async {
-    final user = ref.read(authViewModelProvider).user;
-    if (user == null) return;
     final ctrl = TextEditingController();
-
     final text = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Responder como docente'),
+        title: const Text('Responder foro'),
         content: TextField(
           controller: ctrl,
           minLines: 3,
@@ -181,112 +170,174 @@ class _ForumScreenState extends ConsumerState<ForumScreen> {
         ],
       ),
     );
-
     ctrl.dispose();
     if (text == null || text.isEmpty) return;
 
-    await ref.read(firestoreServiceProvider).replyForumTopic(
-          topicId: topicId,
-          text: text,
-          teacherId: user.uid,
-          teacherName: user.name.trim().isEmpty ? user.email : user.name.trim(),
-        );
+    try {
+      await ref.read(laravelApiServiceProvider).replyForumTopic(
+            topicId: topicId,
+            text: text,
+          );
+      if (!mounted) return;
+      setState(() {
+        _topicsStream = ref.read(laravelApiServiceProvider).watchForumTopics();
+      });
+    } catch (error) {
+      if (mounted) _showError('No se pudo guardar la respuesta: $error');
+    }
   }
 
   void _contactTeacher(Map<String, dynamic> data) {
     final teacherId = (data['teacherId'] ?? '').toString();
-    final teacherName = (data['teacherName'] ?? '').toString();
-    if (teacherId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Este tema aún no tiene docente asignado.')),
-      );
-      return;
-    }
+    if (teacherId.isEmpty) return;
     context.push(
       Uri(
         path: '/docentes/chat',
         queryParameters: {
           'id': teacherId,
-          'name': teacherName,
-          'area': 'Docente asesor',
-          'image': '',
+          'name': (data['teacherName'] ?? 'Docente').toString(),
+          'area': 'Docente asociado al foro',
+          'image': (data['teacherImage'] ?? '').toString(),
         },
       ).toString(),
     );
   }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authViewModelProvider).user;
+    final canCreate = AppRoles.canUseForums(user?.role);
+
+    return AppScaffold(
+      title: 'Foros temáticos',
+      showBack: true,
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: _showQuestionDialog,
+              icon: const Icon(Icons.add_comment_outlined),
+              label: const Text('Abrir foro'),
+            )
+          : null,
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _topicsStream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('No se pudieron cargar los foros desde Laravel.'),
+            );
+          }
+          final topics = snapshot.data ?? const [];
+          return ListView.separated(
+            itemCount: topics.isEmpty ? 2 : topics.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return SectionHeader(
+                  title: AppRoles.isAdminTi(user?.role)
+                      ? 'Gestión de foros y docentes'
+                      : 'Consulta a docentes expertos',
+                  subtitle: AppRoles.isAdminTi(user?.role)
+                      ? 'Crea un foro y selecciona el docente responsable.'
+                      : 'Abre un tema asociado a un docente y revisa sus respuestas.',
+                  icon: Icons.forum_outlined,
+                );
+              }
+              if (topics.isEmpty) {
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text('Aún no hay foros publicados.'),
+                  ),
+                );
+              }
+              final topic = topics[index - 1];
+              final assignedToUser =
+                  (topic['teacherId'] ?? '').toString() == user?.uid;
+              final canAnswer = AppRoles.isAdminTi(user?.role) ||
+                  AppRoles.isDocenteAdmin(user?.role) ||
+                  (AppRoles.isDocente(user?.role) && assignedToUser);
+              return _ForumTopicCard(
+                data: topic,
+                canAnswer: canAnswer,
+                onReply: () => _showReplyDialog((topic['id'] ?? '').toString()),
+                onContactTeacher: () => _contactTeacher(topic),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _ForumTopicCard extends ConsumerWidget {
+class _ForumTopicCard extends StatelessWidget {
   const _ForumTopicCard({
-    required this.topicId,
     required this.data,
     required this.canAnswer,
     required this.onReply,
     required this.onContactTeacher,
   });
 
-  final String topicId;
   final Map<String, dynamic> data;
   final bool canAnswer;
   final VoidCallback onReply;
   final VoidCallback onContactTeacher;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final title = (data['title'] ?? '').toString();
-    final category = (data['category'] ?? 'General').toString();
-    final status = (data['status'] ?? 'Pendiente').toString();
-    final authorName = (data['authorName'] ?? 'Usuario').toString();
-
+  Widget build(BuildContext context) {
+    final replies = (data['replies'] as List?)
+            ?.whereType<Map>()
+            .map((row) =>
+                row.map((key, value) => MapEntry(key.toString(), value)))
+            .toList() ??
+        const <Map<String, dynamic>>[];
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.forum_outlined),
-        title: Text(title),
-        subtitle: Text('$category • $status • $authorName'),
+        title: Text((data['title'] ?? '').toString()),
+        subtitle: Text(
+          '${data['category'] ?? 'General'} • ${data['status'] ?? 'Pendiente'}\nDocente: ${data['teacherName'] ?? 'Sin asignar'}',
+        ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         children: [
-          StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-            stream:
-                ref.watch(firestoreServiceProvider).watchForumReplies(topicId),
-            builder: (context, snapshot) {
-              final replies = snapshot.data ?? const [];
-              if (replies.isEmpty) {
-                return const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: 10),
-                    child: Text('Sin respuestas todavía.'),
-                  ),
-                );
-              }
-              return Column(
-                children: replies.map((reply) {
-                  final item = reply.data();
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.school_outlined),
-                    title: Text((item['teacherName'] ?? 'Docente').toString()),
-                    subtitle: Text((item['text'] ?? '').toString()),
-                  );
-                }).toList(),
-              );
-            },
-          ),
+          if (replies.isEmpty)
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Text('Sin respuestas todavía.'),
+              ),
+            )
+          else
+            ...replies.map(
+              (reply) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.school_outlined),
+                title: Text((reply['teacherName'] ?? 'Docente').toString()),
+                subtitle: Text((reply['text'] ?? '').toString()),
+              ),
+            ),
           Align(
             alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                if (canAnswer) ...[
+                if (canAnswer)
                   FilledButton.icon(
                     onPressed: onReply,
                     icon: const Icon(Icons.rate_review_outlined),
                     label: const Text('Responder'),
                   ),
-                  const SizedBox(height: 8),
-                ],
                 OutlinedButton.icon(
                   onPressed: onContactTeacher,
                   icon: const Icon(Icons.chat_bubble_outline),

@@ -12,7 +12,7 @@
     await Promise.all(keys.map((key) => caches.delete(key)));
   }
 
-  const cacheKey = new URLSearchParams(window.location.search).get('v') || Date.now().toString();
+  const cacheKey = Date.now().toString();
   _flutter.buildConfig.builds = _flutter.buildConfig.builds.map((build) => {
     if (!build.mainJsPath) {
       return build;

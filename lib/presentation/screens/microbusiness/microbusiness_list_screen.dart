@@ -103,8 +103,6 @@ class MicrobusinessListScreen extends ConsumerWidget {
           return MicrobusinessCard(
             business: business,
             onTap: () => context.push('/micronegocios/detail/${business.id}'),
-            onViewMap: () =>
-                context.push('/micronegocios/map?focusId=${business.id}'),
             onHowToGet: () => _openExternalMaps(business),
             onToggleFavorite: () => onToggleFavorite(business.id),
             isFavorite: business.isFavoriteFor(currentUid),

@@ -4,6 +4,7 @@ use App\Constants\Roles;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BusinessEntityController;
 use App\Http\Controllers\Admin\ContentController;
+use App\Http\Controllers\Admin\ContentCategoryController;
 use App\Http\Controllers\Admin\MicrobusinessFieldController;
 use App\Http\Controllers\Admin\MicrobusinessController;
 use App\Http\Controllers\Admin\PlatformSettingController;
@@ -21,6 +22,14 @@ Route::get('/', function () {
     return auth()->check()
         ? redirect()->route('dashboard')
         : redirect()->route('login');
+});
+
+Route::get('/politica-privacidad-liviase.html', function () {
+    return response(
+        file_get_contents(public_path('politica-privacidad-liviase.html')),
+        200,
+        ['Content-Type' => 'text/html; charset=UTF-8'],
+    );
 });
 
 Route::get('/dashboard', function () {
@@ -74,7 +83,7 @@ Route::get('/dashboard', function () {
         'recentLogs' => $hasLogs ? AuditLog::query()->latest()->limit(6)->get() : collect(),
         'recentUsers' => User::query()->latest()->limit(5)->get(),
     ]);
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'admin'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -87,6 +96,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('microbusiness-fields', MicrobusinessFieldController::class)->except(['show']);
         Route::resource('microbusinesses', MicrobusinessController::class)->except(['show']);
         Route::resource('contents', ContentController::class)->except(['show']);
+        Route::resource('content-categories', ContentCategoryController::class)->except(['show']);
         Route::resource('entities', BusinessEntityController::class)->except(['show']);
         Route::get('/logs', [AuditLogController::class, 'index'])->name('logs.index');
         Route::get('/settings', [PlatformSettingController::class, 'edit'])->name('settings.edit');

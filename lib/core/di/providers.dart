@@ -47,6 +47,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
     ref.watch(firebaseAuthServiceProvider),
     ref.watch(firestoreServiceProvider),
+    ref.watch(laravelApiServiceProvider),
   );
 });
 
@@ -63,24 +64,32 @@ final contentRepositoryProvider = Provider<ContentRepository>((ref) {
 
 final businessEntityRepositoryProvider =
     Provider<BusinessEntityRepository>((ref) {
-  return BusinessEntityRepositoryImpl(ref.watch(firestoreServiceProvider));
+  return BusinessEntityRepositoryImpl(
+    ref.watch(firestoreServiceProvider),
+    laravelApiService: ref.watch(laravelApiServiceProvider),
+  );
 });
 
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
-  return CategoryRepositoryImpl(ref.watch(firestoreServiceProvider));
+  return CategoryRepositoryImpl(ref.watch(laravelApiServiceProvider));
 });
 
 final microbusinessRepositoryProvider =
     Provider<MicrobusinessRepository>((ref) {
-  return MicrobusinessRepositoryImpl(ref.watch(firestoreServiceProvider));
+  return MicrobusinessRepositoryImpl(
+    ref.watch(firestoreServiceProvider),
+    laravelApiService: ref.watch(laravelApiServiceProvider),
+  );
 });
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
-  return DashboardRepositoryImpl(ref.watch(firestoreServiceProvider));
+  return DashboardRepositoryImpl(
+    laravelApiService: ref.watch(laravelApiServiceProvider),
+  );
 });
 
 final logRepositoryProvider = Provider<LogRepository>((ref) {
-  return LogRepositoryImpl(ref.watch(firestoreServiceProvider));
+  return LogRepositoryImpl(ref.watch(laravelApiServiceProvider));
 });
 
 final microbusinessFieldDefinitionsProvider =

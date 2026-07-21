@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Content;
+use App\Models\ContentCategory;
 use App\Services\FirestoreSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,14 +20,6 @@ class ContentController extends Controller
         'video' => 'Video',
         'pdf' => 'PDF / documento',
         'evento' => 'Evento de cronograma',
-    ];
-
-    private const CONTENT_CATEGORIES = [
-        'Conferencia en vivo' => 'Conferencia en vivo',
-        'Repositorio en video' => 'Repositorio en video',
-        'Artículos Populares' => 'Artículos Populares',
-        'Artículos Relacionados' => 'Artículos Relacionados',
-        'Cronograma Actividades' => 'Cronograma Actividades',
     ];
 
     public function __construct(private readonly FirestoreSyncService $firestore)
@@ -46,7 +39,7 @@ class ContentController extends Controller
     {
         return view('admin.contents.create', [
             'contentTypes' => self::CONTENT_TYPES,
-            'contentCategories' => self::CONTENT_CATEGORIES,
+            'contentCategories' => $this->contentCategories(),
             'bodyData' => [],
         ]);
     }
@@ -54,6 +47,7 @@ class ContentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateContent($request);
+        $category = ContentCategory::findOrFail($validated['content_category_id']);
 
         $slug = $validated['slug'] ?? Str::slug($validated['title']);
         if (empty($slug)) {
@@ -64,8 +58,9 @@ class ContentController extends Controller
             'title' => $validated['title'],
             'slug' => $slug,
             'type' => $validated['type'],
+            'content_category_id' => $category->id,
             'summary' => $validated['summary'] ?? null,
-            'body' => $this->buildBodyPayload($request),
+            'body' => $this->buildBodyPayload($request, $category->name),
             'status' => $validated['status'],
             // Si el admin marca "publicado" pero no envía publicada_at,
             // la API filtra/ordena por published_at. Usamos now() como fallback.
@@ -87,7 +82,7 @@ class ContentController extends Controller
         return view('admin.contents.edit', [
             'content' => $content,
             'contentTypes' => self::CONTENT_TYPES,
-            'contentCategories' => self::CONTENT_CATEGORIES,
+            'contentCategories' => $this->contentCategories($content->content_category_id),
             'bodyData' => $this->decodeBodyPayload($content),
         ]);
     }
@@ -95,6 +90,7 @@ class ContentController extends Controller
     public function update(Request $request, Content $content): RedirectResponse
     {
         $validated = $this->validateContent($request, $content);
+        $category = ContentCategory::findOrFail($validated['content_category_id']);
 
         $slug = $validated['slug'] ?? Str::slug($validated['title']);
         if (empty($slug)) {
@@ -105,8 +101,9 @@ class ContentController extends Controller
             'title' => $validated['title'],
             'slug' => $slug,
             'type' => $validated['type'],
+            'content_category_id' => $category->id,
             'summary' => $validated['summary'] ?? null,
-            'body' => $this->buildBodyPayload($request),
+            'body' => $this->buildBodyPayload($request, $category->name),
             'status' => $validated['status'],
             // Igual que en store(): si publican sin publicada_at, usamos fallback.
             'published_at' => $this->resolvePublishedAt($request, $validated),
@@ -149,7 +146,10 @@ class ContentController extends Controller
             'type' => ['required', Rule::in(array_keys(self::CONTENT_TYPES))],
             'summary' => ['nullable', 'string'],
             'image_url' => ['nullable', 'url', 'max:500'],
-            'category' => ['required', Rule::in(array_keys(self::CONTENT_CATEGORIES))],
+            'content_category_id' => [
+                'required',
+                Rule::exists('content_categories', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'status' => ['required', 'in:borrador,publicado,archivado'],
             'published_at' => ['nullable', 'date'],
         ]);
@@ -185,12 +185,12 @@ class ContentController extends Controller
         return $validated;
     }
 
-    private function buildBodyPayload(Request $request): string
+    private function buildBodyPayload(Request $request, string $categoryName): string
     {
         $type = (string) $request->input('type', 'articulo');
         $payload = [
             'type' => $type,
-            'category' => $request->input('category', $this->defaultCategory($type)),
+            'category' => $categoryName,
             'image_url' => $request->input('image_url'),
         ];
 
@@ -229,7 +229,7 @@ class ContentController extends Controller
         if (!is_array($decoded) || !isset($decoded['data'])) {
             return [
                 'type' => $content->type,
-                'category' => $this->defaultCategory((string) $content->type),
+                'category' => $content->contentCategory?->name ?? '',
                 'image_url' => '',
                 'data' => [
                     'body' => (string) ($content->body ?? ''),
@@ -237,7 +237,7 @@ class ContentController extends Controller
             ];
         }
 
-        $decoded['category'] = $decoded['category'] ?? $this->defaultCategory((string) $content->type);
+        $decoded['category'] = $content->contentCategory?->name ?? ($decoded['category'] ?? '');
 
         return $decoded;
     }
@@ -256,14 +256,21 @@ class ContentController extends Controller
         return $publishedAt;
     }
 
-    private function defaultCategory(string $type): string
+    private function contentCategories(?int $includeCategoryId = null)
     {
-        return match ($type) {
-            'video' => 'Repositorio en video',
-            'pdf' => 'Artículos Relacionados',
-            'evento' => 'Cronograma Actividades',
-            default => 'Artículos Populares',
-        };
+        return ContentCategory::query()
+            ->where(function ($query) use ($includeCategoryId) {
+                $query->where('is_active', true);
+                if ($includeCategoryId) {
+                    $query->orWhere(
+                        $query->getModel()->getQualifiedKeyName(),
+                        $includeCategoryId,
+                    );
+                }
+            })
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 
 

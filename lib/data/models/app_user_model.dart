@@ -30,7 +30,7 @@ class AppUserModel extends AppUser {
   factory AppUserModel.fromMap(Map<String, dynamic> map) {
     return AppUserModel(
       uid: (map['uid'] ?? '') as String,
-      name: (map['nombre'] ?? '') as String,
+      name: (map['nombre'] ?? map['name'] ?? '') as String,
       email: (map['email'] ?? '') as String,
       role: AppRoles.normalize(
         (map['rol'] ?? map['role'] ?? AppRoles.microempresario).toString(),

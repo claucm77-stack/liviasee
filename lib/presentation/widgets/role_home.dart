@@ -53,7 +53,7 @@ class RoleHomeScreen extends ConsumerWidget {
     final firstName = rawName.split(' ').first;
     final categoryCards = ref.watch(activeContentCategoriesProvider).maybeWhen(
           data: (categories) {
-            if (categories.isEmpty) return _defaultLearningCards;
+            if (categories.isEmpty) return const <_LearningCardData>[];
             return categories
                 .map(
                   (category) => _LearningCardData(
@@ -69,7 +69,7 @@ class RoleHomeScreen extends ConsumerWidget {
                 )
                 .toList();
           },
-          orElse: () => _defaultLearningCards,
+          orElse: () => const <_LearningCardData>[],
         );
 
     return Scaffold(
@@ -369,31 +369,6 @@ class _LearningCardData {
 
 const _fallbackLearningImage =
     'https://images.unsplash.com/photo-1534536281715-e28d76689b4d?auto=format&fit=crop&w=900&q=80';
-
-const _defaultLearningCards = [
-  _LearningCardData(
-    title: 'PUBLICIDAD Y MERCADEO',
-    subtitle:
-        'Actualízate en diferentes estrategias para promocionar y visibilizar tu negocio',
-    imageUrl:
-        'https://images.unsplash.com/photo-1534536281715-e28d76689b4d?auto=format&fit=crop&w=900&q=80',
-    categoryName: 'Publicidad y Mercadeo',
-  ),
-  _LearningCardData(
-    title: 'DERECHO',
-    subtitle: 'Conoce todo lo necesario para proteger tu marca y tu negocio',
-    imageUrl:
-        'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80',
-    categoryName: 'Derecho',
-  ),
-  _LearningCardData(
-    title: 'CONTABILIDAD',
-    subtitle: 'Aprende cómo gestionar los asuntos tributarios de tu negocio',
-    imageUrl:
-        'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80',
-    categoryName: 'Contabilidad',
-  ),
-];
 
 class _LearningCard extends StatelessWidget {
   const _LearningCard({

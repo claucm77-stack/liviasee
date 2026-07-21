@@ -43,13 +43,6 @@ Uri mapsSearchUri(Microbusiness business) {
 }
 
 Uri mapsDirectionsUri(Microbusiness business) {
-  final parsed = parseGoogleMapsLocation(business.mapsUrl);
-  if (parsed != null) {
-    return Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${parsed.latitude},${parsed.longitude}',
-    );
-  }
-
   final mapsUrl = business.mapsUrl.trim();
   if (mapsUrl.isNotEmpty) {
     final uri = Uri.tryParse(mapsUrl);

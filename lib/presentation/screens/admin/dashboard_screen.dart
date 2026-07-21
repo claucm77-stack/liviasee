@@ -20,6 +20,46 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(dashboardViewModelProvider);
     final vm = ref.read(dashboardViewModelProvider.notifier);
+    final role = ref.watch(authViewModelProvider).user?.role;
+    final isSystemAdmin = AppRoles.canManageSystem(role);
+    final tabs = <Tab>[
+      const Tab(text: 'Resumen'),
+      const Tab(text: 'Usuarios'),
+      const Tab(text: 'Contenidos'),
+      if (isSystemAdmin) const Tab(text: 'Categorías'),
+      if (isSystemAdmin) const Tab(text: 'Entidades'),
+      const Tab(text: 'Negocios'),
+      const Tab(text: 'Logs'),
+    ];
+    final views = <Widget>[
+      _SummaryTab(state: state),
+      const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: UsersViewScreen(),
+      ),
+      const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: ContentManagementScreen(),
+      ),
+      if (isSystemAdmin)
+        const Padding(
+          padding: EdgeInsets.all(12.0),
+          child: CategoriesManagementScreen(),
+        ),
+      if (isSystemAdmin)
+        const Padding(
+          padding: EdgeInsets.all(12.0),
+          child: EntitiesManagementScreen(),
+        ),
+      const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: BusinessManagementScreen(),
+      ),
+      const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: LogsScreen(),
+      ),
+    ];
 
     if (!state.isAdmin && !state.isLoading) {
       return const Scaffold(
@@ -30,7 +70,7 @@ class DashboardScreen extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 7,
+      length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Dashboard de gestión'),
@@ -60,52 +100,16 @@ class DashboardScreen extends ConsumerWidget {
               icon: const Icon(Icons.logout),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
-            tabs: [
-              Tab(text: 'Resumen'),
-              Tab(text: 'Usuarios'),
-              Tab(text: 'Contenidos'),
-              Tab(text: 'Categorías'),
-              Tab(text: 'Entidades'),
-              Tab(text: 'Negocios'),
-              Tab(text: 'Logs'),
-            ],
+            tabs: tabs,
           ),
         ),
         body: RefreshIndicator(
           onRefresh: vm.refreshAll,
           child: state.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                  children: [
-                    _SummaryTab(state: state),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: UsersViewScreen(),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: ContentManagementScreen(),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: CategoriesManagementScreen(),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: EntitiesManagementScreen(),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: BusinessManagementScreen(),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: LogsScreen(),
-                    ),
-                  ],
-                ),
+              : TabBarView(children: views),
         ),
       ),
     );

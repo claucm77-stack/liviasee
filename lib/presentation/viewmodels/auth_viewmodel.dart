@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -235,6 +236,45 @@ class AuthViewModel extends StateNotifier<AuthState> {
         errorMessage: _prettyError(e),
         clearSuccess: true,
       );
+    }
+  }
+
+  Future<String?> uploadProfilePhoto({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final current = state.user;
+    if (current == null) {
+      state = state.copyWith(errorMessage: 'Usuario no autenticado.');
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearSuccess: true,
+    );
+    try {
+      final updated =
+          await _ref.read(authRepositoryProvider).uploadProfilePhoto(
+                user: current,
+                bytes: bytes,
+                fileName: fileName,
+              );
+      state = state.copyWith(
+        isLoading: false,
+        user: updated,
+        successMessage: 'Foto de perfil actualizada.',
+        clearError: true,
+      );
+      return updated.photoUrl;
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _prettyError(error),
+        clearSuccess: true,
+      );
+      return null;
     }
   }
 

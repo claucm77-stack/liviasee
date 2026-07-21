@@ -66,7 +66,9 @@ class BusinessManagementScreen extends ConsumerWidget {
                       leading: const Icon(Icons.storefront_outlined),
                       title: Text(business.nombre),
                       subtitle: Text(
-                        '${business.categoria} • ${business.favoritos.length} favoritos',
+                        '${business.categoria} • ${(business.ratingPromedio ?? 0).toStringAsFixed(1)} ★ '
+                        '(${business.totalCalificaciones ?? 0} calificaciones) • '
+                        '${business.favoritos.length} favoritos',
                       ),
                       trailing: Wrap(
                         spacing: 6,

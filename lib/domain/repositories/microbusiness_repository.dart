@@ -32,7 +32,7 @@ abstract class MicrobusinessRepository {
     required String userId,
   });
 
-  Future<void> rateBusiness({
+  Future<Microbusiness> rateBusiness({
     required String businessId,
     required double rating,
   });

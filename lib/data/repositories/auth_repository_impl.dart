@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../domain/entities/app_user.dart';
@@ -5,27 +7,61 @@ import '../../domain/repositories/auth_repository.dart';
 import '../../core/constants/app_roles.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/laravel_api_service.dart' hide User;
 import '../models/app_user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final FirebaseAuthService _authService;
   final FirestoreService _firestoreService;
+  final LaravelApiService _laravelApiService;
 
-  AuthRepositoryImpl(this._authService, this._firestoreService);
+  AuthRepositoryImpl(
+    this._authService,
+    this._firestoreService,
+    this._laravelApiService,
+  );
+
+  Future<AuthResponse> _syncLaravelSession() async {
+    final token = await _authService.getIdToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Firebase no entregó un token de sesión válido.');
+    }
+    return _laravelApiService.exchangeFirebaseToken(token);
+  }
+
+  Future<AppUserModel> _authoritativeUser(User firebaseUser) async {
+    final session = await _syncLaravelSession();
+    AppUser? cachedProfile;
+    try {
+      cachedProfile = await getUserProfile(firebaseUser.uid);
+    } on FirebaseException {
+      // Laravel remains authoritative when the Firestore cache is unavailable.
+    }
+
+    return AppUserModel(
+      uid: firebaseUser.uid,
+      name: session.user.name.isNotEmpty
+          ? session.user.name
+          : cachedProfile?.name ?? firebaseUser.displayName ?? '',
+      email: session.user.email.isNotEmpty
+          ? session.user.email
+          : firebaseUser.email ?? '',
+      role: session.user.role,
+      photoUrl: session.user.photoUrl.isNotEmpty
+          ? session.user.photoUrl
+          : (cachedProfile?.photoUrl.isNotEmpty ?? false)
+              ? cachedProfile!.photoUrl
+              : firebaseUser.photoURL ?? '',
+      createdAt: session.user.createdAt ?? cachedProfile?.createdAt,
+      isActive: session.user.isActive,
+    );
+  }
 
   @override
   Stream<AppUser?> authStateChanges() {
     return _authService.authStateChanges().asyncMap((firebaseUser) async {
       if (firebaseUser == null) return null;
-      try {
-        final profile = await getUserProfile(firebaseUser.uid);
-        return profile ??
-            AppUserModel.fromFirebase(
-                uid: firebaseUser.uid, email: firebaseUser.email);
-      } on FirebaseException {
-        return AppUserModel.fromFirebase(
-            uid: firebaseUser.uid, email: firebaseUser.email);
-      }
+      return _authoritativeUser(firebaseUser);
     });
   }
 
@@ -33,14 +69,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Stream<AppUser?> currentUserStream() {
     return _authService.authStateChanges().asyncMap((firebaseUser) async {
       if (firebaseUser == null) return null;
-      try {
-        return await getUserProfile(firebaseUser.uid) ??
-            AppUserModel.fromFirebase(
-                uid: firebaseUser.uid, email: firebaseUser.email);
-      } on FirebaseException {
-        return AppUserModel.fromFirebase(
-            uid: firebaseUser.uid, email: firebaseUser.email);
-      }
+      return _authoritativeUser(firebaseUser);
     });
   }
 
@@ -55,13 +84,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = credential.user;
       if (user == null) return null;
 
-      try {
-        final profile = await getUserProfile(user.uid);
-        return profile ??
-            AppUserModel.fromFirebase(uid: user.uid, email: user.email);
-      } on FirebaseException {
-        return AppUserModel.fromFirebase(uid: user.uid, email: user.email);
-      }
+      return _authoritativeUser(user);
     } on FirebaseAuthException catch (e) {
       throw Exception(_mapFirebaseAuthError(e));
     }
@@ -76,7 +99,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       try {
         final profile = await getUserProfile(user.uid);
-        if (profile != null) return profile;
+        if (profile != null) return _authoritativeUser(user);
       } on FirebaseException {
         // Continue and create the basic profile from the Google account.
       }
@@ -96,7 +119,7 @@ class AuthRepositoryImpl implements AuthRepository {
         data: newUser.toMap(),
       );
 
-      return newUser;
+      return _authoritativeUser(user);
     } on FirebaseAuthException catch (e) {
       throw Exception(_mapFirebaseAuthError(e));
     }
@@ -127,7 +150,7 @@ class AuthRepositoryImpl implements AuthRepository {
         data: newUser.toMap(),
       );
 
-      return newUser;
+      return _authoritativeUser(user);
     } on FirebaseAuthException catch (e) {
       throw Exception(_mapFirebaseAuthError(e));
     }
@@ -156,25 +179,56 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String photoUrl,
   }) async {
+    final saved = await _laravelApiService.saveMobileData('profile', {
+      'name': name,
+      'photoUrl': photoUrl,
+    });
     final updated = AppUserModel(
       uid: user.uid,
-      name: name,
-      email: email,
+      name: (saved['name'] ?? name).toString(),
+      email: user.email,
       role: user.role,
-      photoUrl: photoUrl,
+      photoUrl: (saved['photoUrl'] ?? photoUrl).toString(),
       createdAt: user.createdAt,
     );
 
-    await _firestoreService.setUserProfile(
-      uid: user.uid,
-      data: updated.toMap(),
-    );
+    try {
+      await _firestoreService.setUserProfile(
+        uid: user.uid,
+        data: updated.toMap(),
+      );
+    } on FirebaseException {
+      // Laravel already persisted the profile; Firestore is only a cache.
+    }
 
     return updated;
   }
 
   @override
-  Future<void> signOut() => _authService.signOut();
+  Future<AppUser> uploadProfilePhoto({
+    required AppUser user,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final saved = await _laravelApiService.uploadProfilePhoto(
+      bytes: bytes,
+      fileName: fileName,
+    );
+    final photoUrl = (saved['photoUrl'] ?? '').toString();
+    if (photoUrl.isEmpty) {
+      throw StateError('Laravel no devolvió la imagen de perfil.');
+    }
+
+    return user.copyWith(photoUrl: photoUrl);
+  }
+
+  @override
+  Future<void> signOut() async {
+    if (_laravelApiService.isAuthenticated) {
+      await _laravelApiService.logout();
+    }
+    await _authService.signOut();
+  }
 
   String _mapFirebaseAuthError(FirebaseAuthException e) {
     switch (e.code) {
@@ -194,7 +248,14 @@ class AuthRepositoryImpl implements AuthRepository {
       case 'too-many-requests':
         return 'Demasiados intentos. Intenta más tarde.';
       case 'google-sign-in-cancelled':
+      case 'popup-closed-by-user':
         return 'Inicio de sesión con Google cancelado.';
+      case 'popup-blocked':
+        return 'El navegador bloqueó la ventana de Google. Habilita las ventanas emergentes e intenta nuevamente.';
+      case 'unauthorized-domain':
+        return 'Este dominio no está autorizado para iniciar con Google.';
+      case 'operation-not-allowed':
+        return 'El acceso con Google no está habilitado en Firebase.';
       default:
         return 'Ocurrió un error de autenticación. Intenta nuevamente.';
     }
