@@ -54,6 +54,9 @@ Route::get('/dashboard', function () {
             ->groupBy('status')
             ->pluck('total', 'status')
         : collect();
+    $eventCount = $hasContents
+        ? Content::query()->where('type', 'evento')->count()
+        : 0;
 
     $logsByModule = $hasLogs
         ? AuditLog::query()
@@ -70,17 +73,26 @@ Route::get('/dashboard', function () {
             'activeUsers' => User::where('is_active', true)->count(),
             'inactiveUsers' => User::where('is_active', false)->count(),
             'contents' => $hasContents ? Content::count() : 0,
-            'publishedContents' => (int) ($contentByStatus['published'] ?? $contentByStatus['activo'] ?? 0),
-            'draftContents' => (int) ($contentByStatus['draft'] ?? $contentByStatus['inactivo'] ?? 0),
+            'publishedContents' => (int) ($contentByStatus['publicado'] ?? $contentByStatus['published'] ?? $contentByStatus['activo'] ?? 0),
+            'draftContents' => (int) ($contentByStatus['borrador'] ?? $contentByStatus['draft'] ?? $contentByStatus['inactivo'] ?? 0),
             'fields' => $hasFields ? MicrobusinessField::count() : 0,
             'activeFields' => $hasFields ? MicrobusinessField::where('is_active', true)->count() : 0,
             'microbusinesses' => $hasMicrobusinesses ? Microbusiness::count() : 0,
             'activeMicrobusinesses' => $hasMicrobusinesses ? Microbusiness::where('status', 'activo')->count() : 0,
+            'events' => $eventCount,
             'logs' => $hasLogs ? AuditLog::count() : 0,
         ],
         'roleStats' => $roleStats,
         'logsByModule' => $logsByModule,
         'recentLogs' => $hasLogs ? AuditLog::query()->latest()->limit(6)->get() : collect(),
+        'recentEvents' => $hasContents
+            ? Content::query()
+                ->where('type', 'evento')
+                ->latest('published_at')
+                ->latest('created_at')
+                ->limit(6)
+                ->get()
+            : collect(),
         'recentUsers' => User::query()->latest()->limit(5)->get(),
     ]);
 })->middleware(['auth', 'verified', 'admin'])->name('dashboard');

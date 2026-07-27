@@ -237,6 +237,7 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
   List<Content> _popularArticlesFrom(List<Content> contents) {
     final articles = contents.where((item) {
       return item.tipo == ContentType.texto ||
+          item.tipo == ContentType.pdf ||
           item.categoria.toLowerCase().contains('art');
     }).toList();
     if (articles.isNotEmpty) {
@@ -258,10 +259,13 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
         return item.tipo == ContentType.video;
       }
       if (title.contains('art')) {
-        return item.tipo == ContentType.texto || category.contains('art');
+        return item.tipo == ContentType.texto ||
+            item.tipo == ContentType.pdf ||
+            category.contains('art');
       }
       if (title.contains('cronograma')) {
-        return category.contains('actividad') ||
+        return item.tipo == ContentType.evento ||
+            category.contains('actividad') ||
             category.contains('cronograma') ||
             category.contains('evento');
       }
@@ -373,7 +377,8 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
 
   Future<void> _openContent(BuildContext context, Content item) async {
     final url = item.url.trim();
-    if (item.tipo != ContentType.texto && url.isNotEmpty) {
+    if ((item.tipo == ContentType.video || item.tipo == ContentType.pdf) &&
+        url.isNotEmpty) {
       final uri = Uri.tryParse(url);
       if (uri != null &&
           await launchUrl(uri, mode: LaunchMode.externalApplication)) {
@@ -416,9 +421,38 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                if (item.autorNombre.trim().isNotEmpty) ...[
+                  Text(
+                    'Autor: ${item.autorNombre}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (item.tipo == ContentType.evento) ...[
+                  _EventDetails(metadata: item.metadata),
+                  const SizedBox(height: 12),
+                ],
                 Text(item.contenido.trim().isEmpty
                     ? item.descripcion
                     : item.contenido),
+                if (item.tipo == ContentType.evento && url.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final uri = Uri.tryParse(url);
+                      if (uri != null) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Abrir inscripción'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -426,6 +460,46 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
       ),
     );
   }
+}
+
+class _EventDetails extends StatelessWidget {
+  const _EventDetails({required this.metadata});
+
+  final Map<String, dynamic> metadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(IconData, String)>[
+      if (_text('starts_at').isNotEmpty)
+        (Icons.schedule_outlined, 'Inicio: ${_text('starts_at')}'),
+      if (_text('ends_at').isNotEmpty)
+        (Icons.schedule, 'Fin: ${_text('ends_at')}'),
+      if (_text('location').isNotEmpty)
+        (Icons.location_on_outlined, _text('location')),
+      if (_text('modality').isNotEmpty)
+        (Icons.groups_outlined, 'Modalidad: ${_text('modality')}'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rows
+          .map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Icon(row.$1, size: 19, color: const Color(0xFF4C8D93)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(row.$2)),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  String _text(String key) => (metadata[key] ?? '').toString().trim();
 }
 
 class _ContentGroupCard extends StatelessWidget {
@@ -527,8 +601,11 @@ class _PopularContentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final author =
-        item.autorId.trim().isEmpty ? 'Equipo Livi@se' : item.autorId;
+    final author = item.autorNombre.trim().isNotEmpty
+        ? item.autorNombre
+        : (item.autorId.trim().isNotEmpty
+            ? item.autorId
+            : 'Autor no informado');
 
     return Row(
       children: [
@@ -618,9 +695,7 @@ class _PopularContentTile extends StatelessWidget {
   }
 
   String _sourceFrom(String category) {
-    if (category.trim().isEmpty) return 'San Martín';
-    if (category.length <= 14) return category;
-    return 'San Martín';
+    return category.trim();
   }
 }
 

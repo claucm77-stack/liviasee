@@ -59,6 +59,7 @@ class ContentController extends Controller
             'slug' => $slug,
             'type' => $validated['type'],
             'content_category_id' => $category->id,
+            'author_id' => (string) (auth()->user()?->firebase_uid ?: auth()->id()),
             'summary' => $validated['summary'] ?? null,
             'body' => $this->buildBodyPayload($request, $category->name),
             'status' => $validated['status'],
@@ -152,12 +153,12 @@ class ContentController extends Controller
             ],
             'status' => ['required', 'in:borrador,publicado,archivado'],
             'published_at' => ['nullable', 'date'],
+            'author_name' => ['nullable', 'string', 'max:180'],
         ]);
 
         $specificRules = match ($validated['type']) {
             'articulo' => [
                 'article_body' => ['required', 'string'],
-                'author_name' => ['nullable', 'string', 'max:180'],
                 'reading_time' => ['nullable', 'integer', 'min:1', 'max:240'],
             ],
             'video' => [
@@ -219,6 +220,7 @@ class ContentController extends Controller
                 'reading_time' => $request->input('reading_time'),
             ],
         };
+        $payload['data']['author_name'] = $request->input('author_name');
 
         return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }

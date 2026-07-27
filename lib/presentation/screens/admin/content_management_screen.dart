@@ -112,6 +112,8 @@ class ContentManagementScreen extends ConsumerWidget {
         return Icons.play_circle_outline;
       case ContentType.pdf:
         return Icons.picture_as_pdf_outlined;
+      case ContentType.evento:
+        return Icons.event_note_outlined;
       case ContentType.texto:
         return Icons.article_outlined;
     }

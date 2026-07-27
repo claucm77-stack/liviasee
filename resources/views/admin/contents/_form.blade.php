@@ -72,6 +72,12 @@
     <textarea name="summary" rows="3" class="{{ $inputClass }}" placeholder="Describe brevemente qué encontrará el usuario.">{{ old('summary', $content->summary ?? '') }}</textarea>
 </div>
 
+<div>
+    <label class="block text-sm font-medium mb-1">Autor o responsable</label>
+    <input type="text" name="author_name" value="{{ old('author_name', $payloadData['author_name'] ?? '') }}" class="{{ $inputClass }}" placeholder="Nombre que se mostrará en la app">
+    <p class="mt-1 text-xs text-gray-500">Este nombre se muestra en la app para artículos, PDF, videos y eventos.</p>
+</div>
+
 <div class="grid gap-4 md:grid-cols-2">
     <div>
         <label class="block text-sm font-medium mb-1">Imagen de portada (URL)</label>
@@ -96,10 +102,6 @@
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
-        <div>
-            <label class="block text-sm font-medium mb-1">Autor o responsable</label>
-            <input type="text" name="author_name" value="{{ old('author_name', $payloadData['author_name'] ?? '') }}" class="{{ $inputClass }}" placeholder="Nombre del autor">
-        </div>
         <div>
             <label class="block text-sm font-medium mb-1">Tiempo de lectura (minutos)</label>
             <input type="number" min="1" name="reading_time" value="{{ old('reading_time', $payloadData['reading_time'] ?? '') }}" class="{{ $inputClass }}">

@@ -38,6 +38,32 @@ class ApiContentTest extends TestCase
             ->assertJsonPath('data.0.metadata.body', 'Contenido completo del artículo.');
     }
 
+    public function test_content_contract_preserves_event_type_and_named_author(): void
+    {
+        Content::create([
+            'title' => 'Taller de ventas',
+            'slug' => 'taller-de-ventas',
+            'type' => 'evento',
+            'body' => json_encode([
+                'type' => 'evento',
+                'category' => 'Cronograma Actividades',
+                'data' => [
+                    'agenda' => 'Agenda del taller.',
+                    'author_name' => 'María Pérez',
+                ],
+            ]),
+            'status' => 'publicado',
+            'published_at' => now(),
+        ]);
+
+        $this->getJson('/api/contents')
+            ->assertOk()
+            ->assertJsonPath('data.0.tipo', 'evento')
+            ->assertJsonPath('data.0.categoria', 'Cronograma Actividades')
+            ->assertJsonPath('data.0.autorNombre', 'María Pérez')
+            ->assertJsonPath('data.0.contenido', 'Agenda del taller.');
+    }
+
     public function test_mobile_receives_laravel_categories_and_their_associated_contents(): void
     {
         $category = ContentCategory::create([

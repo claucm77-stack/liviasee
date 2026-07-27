@@ -35,7 +35,8 @@ class ContentController extends Controller
                     'url' => $this->contentUrl($type, $metadata),
                     'imagen' => (string) ($payload['image_url'] ?? ''),
                     'categoria' => $this->contentCategory($content, $type, $payload),
-                    'autorId' => '',
+                    'autorId' => (string) ($content->author_id ?? ''),
+                    'autorNombre' => $this->contentAuthorName($content, $metadata),
                     'fechaCreacion' => optional($content->created_at)?->toIso8601String(),
                     'estado' => $content->status === 'publicado' ? 'activo' : 'inactivo',
                     'destacado' => false,
@@ -66,8 +67,27 @@ class ContentController extends Controller
         return match ($type) {
             'video' => 'video',
             'pdf' => 'pdf',
+            'evento' => 'evento',
             default => 'texto',
         };
+    }
+
+    private function contentAuthorName(Content $content, array $metadata): string
+    {
+        $name = trim((string) ($metadata['author_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $authorId = trim((string) ($content->author_id ?? ''));
+        if ($authorId === '') {
+            return '';
+        }
+
+        return (string) (\App\Models\User::query()
+            ->where('firebase_uid', $authorId)
+            ->orWhere(fn ($query) => ctype_digit($authorId) ? $query->whereKey((int) $authorId) : $query->whereRaw('1 = 0'))
+            ->value('name') ?? '');
     }
 
     private function contentCategory(Content $content, string $type, array $payload = []): string

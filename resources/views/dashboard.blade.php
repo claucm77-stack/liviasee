@@ -33,7 +33,7 @@
                         </div>
                         <div class="rounded-lg border border-white/20 bg-white/15 p-3">
                             <p class="text-white/75">Eventos</p>
-                            <p class="text-2xl font-black">{{ $stats['logs'] }}</p>
+                            <p class="text-2xl font-black">{{ $stats['events'] }}</p>
                         </div>
                         <div class="rounded-lg border border-white/20 bg-white/15 p-3">
                             <p class="text-white/75">Micronegocios</p>
@@ -114,14 +114,14 @@
                 <div class="liviase-card p-5">
                     <h3 class="text-lg font-black text-gray-800">Últimos eventos</h3>
                     <div class="mt-4 divide-y divide-gray-100">
-                        @forelse ($recentLogs as $log)
+                        @forelse ($recentEvents as $event)
                             <div class="py-3">
                                 <div class="flex items-start justify-between gap-4">
-                                    <p class="font-bold text-gray-900">{{ $log->action }}</p>
-                                    <span class="text-xs font-bold text-[#4c8d93]">{{ $log->module }}</span>
+                                    <p class="font-bold text-gray-900">{{ $event->title }}</p>
+                                    <span class="text-xs font-bold text-[#4c8d93]">Cronograma</span>
                                 </div>
-                                <p class="mt-1 text-sm text-gray-500">{{ $log->description }}</p>
-                                <p class="mt-1 text-xs text-gray-400">{{ optional($log->created_at)->format('d/m/Y H:i') }}</p>
+                                <p class="mt-1 text-sm text-gray-500">{{ $event->summary }}</p>
+                                <p class="mt-1 text-xs text-gray-400">{{ optional($event->published_at ?? $event->created_at)->format('d/m/Y H:i') }}</p>
                             </div>
                         @empty
                             <p class="py-4 text-sm text-gray-500">No hay eventos recientes.</p>

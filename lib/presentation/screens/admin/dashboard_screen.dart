@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_roles.dart';
+import '../../../domain/entities/content.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/dashboard_viewmodel.dart';
 import '../../widgets/dashboard/metric_card.dart';
@@ -148,6 +149,9 @@ class _SummaryTab extends StatelessWidget {
         _percent(metrics.activeContents, metrics.totalContents);
     final activeMicrobusinessPercent =
         _percent(metrics.activeMicrobusinesses, metrics.totalMicrobusinesses);
+    final eventCount = state.contents
+        .where((content) => content.tipo == ContentType.evento)
+        .length;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -157,7 +161,7 @@ class _SummaryTab extends StatelessWidget {
           users: metrics.totalUsers,
           contents: metrics.totalContents,
           microbusinesses: metrics.totalMicrobusinesses,
-          logs: state.logs.length,
+          events: eventCount,
         ),
         const SizedBox(height: 12),
         GridView.count(
@@ -307,13 +311,13 @@ class _DashboardHero extends StatelessWidget {
     required this.users,
     required this.contents,
     required this.microbusinesses,
-    required this.logs,
+    required this.events,
   });
 
   final int users;
   final int contents;
   final int microbusinesses;
-  final int logs;
+  final int events;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +358,7 @@ class _DashboardHero extends StatelessWidget {
               _HeroBadge(label: 'Usuarios', value: users),
               _HeroBadge(label: 'Contenidos', value: contents),
               _HeroBadge(label: 'Negocios', value: microbusinesses),
-              _HeroBadge(label: 'Eventos', value: logs),
+              _HeroBadge(label: 'Eventos', value: events),
             ],
           ),
         ],

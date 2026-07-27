@@ -11,6 +11,8 @@ class ContentModel extends Content {
     required super.imagen,
     required super.categoria,
     required super.autorId,
+    super.autorNombre,
+    super.metadata,
     required super.fechaCreacion,
     required super.estado,
     super.destacado,
@@ -32,6 +34,8 @@ class ContentModel extends Content {
       imagen: (map['imagen'] ?? '') as String,
       categoria: (map['categoria'] ?? '') as String,
       autorId: (map['autorId'] ?? '') as String,
+      autorNombre: (map['autorNombre'] ?? '') as String,
+      metadata: _parseMetadata(map['metadata']),
       fechaCreacion: _parseDate(map['fechaCreacion']),
       estado: _statusFromString((map['estado'] ?? 'activo') as String),
       destacado: (map['destacado'] ?? false) as bool,
@@ -51,6 +55,8 @@ class ContentModel extends Content {
       'imagen': imagen,
       'categoria': categoria,
       'autorId': autorId,
+      'autorNombre': autorNombre,
+      'metadata': metadata,
       'fechaCreacion': fechaCreacion.toIso8601String(),
       'estado': estado.name,
       'destacado': destacado,
@@ -65,6 +71,8 @@ class ContentModel extends Content {
         return ContentType.video;
       case 'pdf':
         return ContentType.pdf;
+      case 'evento':
+        return ContentType.evento;
       case 'texto':
       default:
         return ContentType.texto;
@@ -96,6 +104,13 @@ class ContentModel extends Content {
     return const [];
   }
 
+  static Map<String, dynamic> _parseMetadata(dynamic value) {
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    return const {};
+  }
+
   factory ContentModel.fromEntity(Content content) {
     return ContentModel(
       id: content.id,
@@ -107,6 +122,8 @@ class ContentModel extends Content {
       imagen: content.imagen,
       categoria: content.categoria,
       autorId: content.autorId,
+      autorNombre: content.autorNombre,
+      metadata: content.metadata,
       fechaCreacion: content.fechaCreacion,
       estado: content.estado,
       destacado: content.destacado,

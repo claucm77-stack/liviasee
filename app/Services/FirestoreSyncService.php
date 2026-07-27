@@ -39,7 +39,8 @@ class FirestoreSyncService
             'url' => $this->contentUrl($type, $data),
             'imagen' => (string) ($payload['image_url'] ?? ''),
             'categoria' => $this->contentCategory($content, $type, $payload),
-            'autorId' => '',
+            'autorId' => (string) ($content->author_id ?? ''),
+            'autorNombre' => $this->contentAuthorName($content, $data),
             'fechaCreacion' => optional($content->created_at)?->toIso8601String() ?? now()->toIso8601String(),
             'estado' => $content->status === 'publicado' ? 'activo' : 'inactivo',
             'destacado' => false,
@@ -54,6 +55,20 @@ class FirestoreSyncService
     public function deleteContent(Content $content): void
     {
         $this->deleteDocument('contenidos', (string) $content->id);
+    }
+
+    private function contentAuthorName(Content $content, array $data): string
+    {
+        $name = trim((string) ($data['author_name'] ?? ''));
+        if ($name !== '') return $name;
+
+        $authorId = trim((string) ($content->author_id ?? ''));
+        if ($authorId === '') return '';
+
+        return (string) (\App\Models\User::query()
+            ->where('firebase_uid', $authorId)
+            ->orWhere(fn ($query) => ctype_digit($authorId) ? $query->whereKey((int) $authorId) : $query->whereRaw('1 = 0'))
+            ->value('name') ?? '');
     }
 
     public function syncContentCategory(ContentCategory $category): void
@@ -154,6 +169,7 @@ class FirestoreSyncService
         return match ($type) {
             'video' => 'video',
             'pdf' => 'pdf',
+            'evento' => 'evento',
             default => 'texto',
         };
     }

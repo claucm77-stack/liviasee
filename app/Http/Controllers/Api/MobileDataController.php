@@ -217,9 +217,16 @@ class MobileDataController extends Controller
         return response()->json([], 204);
     }
 
-    public function contents(): JsonResponse
+    public function contents(Request $request): JsonResponse
     {
-        $rows = Content::query()->with('contentCategory')->latest()->get()->map($this->contentData(...));
+        $canManage = Roles::canManageContent($request->user()->role)
+            || Roles::normalize($request->user()->role) === Roles::ADMIN_TI;
+        $rows = Content::query()
+            ->with('contentCategory')
+            ->when(! $canManage, fn ($query) => $query->where('status', 'publicado'))
+            ->latest()
+            ->get()
+            ->map($this->contentData(...));
         return response()->json(['data' => $rows]);
     }
 
@@ -230,12 +237,13 @@ class MobileDataController extends Controller
             'id' => ['nullable', 'string', 'max:191'],
             'titulo' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
-            'tipo' => ['required', 'in:texto,video,pdf'],
+            'tipo' => ['required', 'in:texto,video,pdf,evento'],
             'url' => ['nullable', 'string', 'max:2000'],
             'contenido' => ['nullable', 'string'],
             'imagen' => ['nullable', 'string', 'max:2000'],
             'categoria' => ['nullable', 'string', 'max:120'],
             'autorId' => ['nullable', 'string', 'max:191'],
+            'autorNombre' => ['nullable', 'string', 'max:180'],
             'fechaCreacion' => ['nullable', 'date'],
             'estado' => ['required', 'in:activo,inactivo'],
             'destacado' => ['nullable', 'boolean'],
@@ -250,8 +258,10 @@ class MobileDataController extends Controller
         $payloadData = match ($laravelType) {
             'video' => ['video_url' => $data['url'] ?? '', 'transcript' => $data['contenido'] ?? ''],
             'pdf' => ['pdf_url' => $data['url'] ?? '', 'instructions' => $data['contenido'] ?? ''],
-            default => ['body' => $data['contenido'] ?? ''],
+            'evento' => ['registration_url' => $data['url'] ?? '', 'agenda' => $data['contenido'] ?? ''],
+            default => ['body' => $data['contenido'] ?? '', 'author_name' => $data['autorNombre'] ?? ''],
         };
+        $payloadData['author_name'] = $data['autorNombre'] ?? '';
         $content->fill([
             'external_id' => $content->exists ? $content->external_id : $this->externalId($data['id'] ?? null),
             'title' => $data['titulo'],
@@ -434,7 +444,7 @@ class MobileDataController extends Controller
 
     private function categoryData(ContentCategory $row): array { return ['id' => (string) ($row->external_id ?: $row->id), 'nombre' => $row->name, 'scope' => $row->scope, 'descripcion' => (string) $row->description, 'imageUrl' => $row->imageUrl(), 'orden' => $row->sort_order, 'isActive' => $row->is_active, 'createdAt' => optional($row->created_at)?->toIso8601String()]; }
     private function logData(AuditLog $row): array { return ['id' => (string) $row->id, 'usuarioId' => (string) ($row->user?->firebase_uid ?: $row->user_id ?: ''), 'accion' => $row->action, 'modulo' => $row->module, 'fecha' => optional($row->created_at)?->toIso8601String(), 'origen' => (string) data_get($row->metadata, 'origin', 'laravel'), 'detalle' => $row->description]; }
-    private function contentData(Content $row): array { $payload = json_decode((string) $row->body, true) ?: []; $data = $payload['data'] ?? []; $type = $row->type === 'articulo' ? 'texto' : $row->type; return ['id' => (string) ($row->external_id ?: $row->id), 'titulo' => $row->title, 'descripcion' => (string) $row->summary, 'tipo' => $type, 'url' => $type === 'video' ? ($data['video_url'] ?? '') : ($type === 'pdf' ? ($data['pdf_url'] ?? '') : ''), 'contenido' => $type === 'video' ? ($data['transcript'] ?? '') : ($type === 'pdf' ? ($data['instructions'] ?? '') : ($data['body'] ?? '')), 'imagen' => (string) ($payload['image_url'] ?? ''), 'categoria' => $row->contentCategory?->name ?? ($payload['category'] ?? ''), 'autorId' => (string) $row->author_id, 'fechaCreacion' => optional($row->created_at)?->toIso8601String(), 'estado' => $row->status === 'publicado' ? 'activo' : 'inactivo', 'destacado' => $row->featured, 'favoritos' => $row->favorites ?? [], 'vistos' => $row->views ?? []]; }
+    private function contentData(Content $row): array { $payload = json_decode((string) $row->body, true) ?: []; $data = $payload['data'] ?? []; $type = $row->type === 'articulo' ? 'texto' : $row->type; $authorName = trim((string) ($data['author_name'] ?? '')); if ($authorName === '' && filled($row->author_id)) { $authorId = (string) $row->author_id; $authorName = (string) (User::query()->where('firebase_uid', $authorId)->orWhere(fn ($query) => ctype_digit($authorId) ? $query->whereKey((int) $authorId) : $query->whereRaw('1 = 0'))->value('name') ?? ''); } return ['id' => (string) ($row->external_id ?: $row->id), 'titulo' => $row->title, 'descripcion' => (string) $row->summary, 'tipo' => $type, 'url' => $type === 'video' ? ($data['video_url'] ?? '') : ($type === 'pdf' ? ($data['pdf_url'] ?? '') : ($type === 'evento' ? ($data['registration_url'] ?? '') : '')), 'contenido' => $type === 'video' ? ($data['transcript'] ?? '') : ($type === 'pdf' ? ($data['instructions'] ?? '') : ($type === 'evento' ? ($data['agenda'] ?? '') : ($data['body'] ?? ''))), 'imagen' => (string) ($payload['image_url'] ?? ''), 'categoria' => $row->contentCategory?->name ?? ($payload['category'] ?? ''), 'autorId' => (string) $row->author_id, 'autorNombre' => $authorName, 'fechaCreacion' => optional($row->created_at)?->toIso8601String(), 'estado' => $row->status === 'publicado' ? 'activo' : 'inactivo', 'destacado' => $row->featured, 'favoritos' => $row->favorites ?? [], 'vistos' => $row->views ?? [], 'metadata' => $data]; }
     private function microbusinessData(Microbusiness $row): array { return ['id' => (string) ($row->external_id ?: $row->id), 'nombre' => $row->name, 'descripcion' => (string) $row->description, 'categoria' => (string) $row->category, 'direccion' => (string) $row->address, 'latitud' => $row->latitude, 'longitud' => $row->longitude, 'mapsUrl' => (string) $row->maps_url, 'imagen' => $row->imageUrl(), 'propietarioId' => (string) $row->owner_id, 'contacto' => (string) $row->contact, 'horario' => (string) $row->schedule, 'estado' => $row->status, 'fechaCreacion' => optional($row->created_on_app_at ?? $row->created_at)?->toIso8601String(), 'favoritos' => $row->favorites ?? [], 'ratingPromedio' => $row->average_rating, 'totalCalificaciones' => $row->ratings_count, 'campos' => $row->custom_fields ?? []]; }
     private function entityData(BusinessEntity $row): array { return ['id' => (string) ($row->external_id ?: $row->id), 'name' => $row->name, 'imageUrl' => $row->imageUrl(), 'mainUrl' => (string) $row->main_url, 'createdAt' => optional($row->created_at)?->toIso8601String(), 'resources' => $row->firestoreResources()]; }
 

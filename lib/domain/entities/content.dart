@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum ContentType { video, pdf, texto }
+enum ContentType { video, pdf, texto, evento }
 
 enum ContentStatus { activo, inactivo }
 
@@ -14,6 +14,8 @@ class Content extends Equatable {
   final String imagen;
   final String categoria;
   final String autorId;
+  final String autorNombre;
+  final Map<String, dynamic> metadata;
   final DateTime fechaCreacion;
   final ContentStatus estado;
   final bool destacado;
@@ -30,6 +32,8 @@ class Content extends Equatable {
     required this.imagen,
     required this.categoria,
     required this.autorId,
+    this.autorNombre = '',
+    this.metadata = const {},
     required this.fechaCreacion,
     required this.estado,
     this.destacado = false,
@@ -53,6 +57,8 @@ class Content extends Equatable {
     String? imagen,
     String? categoria,
     String? autorId,
+    String? autorNombre,
+    Map<String, dynamic>? metadata,
     DateTime? fechaCreacion,
     ContentStatus? estado,
     bool? destacado,
@@ -69,6 +75,8 @@ class Content extends Equatable {
       imagen: imagen ?? this.imagen,
       categoria: categoria ?? this.categoria,
       autorId: autorId ?? this.autorId,
+      autorNombre: autorNombre ?? this.autorNombre,
+      metadata: metadata ?? this.metadata,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
       estado: estado ?? this.estado,
       destacado: destacado ?? this.destacado,
@@ -88,6 +96,8 @@ class Content extends Equatable {
         imagen,
         categoria,
         autorId,
+        autorNombre,
+        metadata,
         fechaCreacion,
         estado,
         destacado,
