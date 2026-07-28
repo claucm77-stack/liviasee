@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "448369198333-f0t9gdqlqh9t8vo30lh6t31b3jii3vk4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "co.edu.sanmartin.liviase",
+            "certificate_hash": "6f48090f41407647e13122de8d9406af4af1a8f4"
+          }
+        },
+        {
           "client_id": "448369198333-imkskg7m3nvkn2nv5chubulsonq0tqik.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
