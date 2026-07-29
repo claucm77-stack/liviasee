@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Content;
+use App\Models\Alert;
 use App\Models\ContentCategory;
 use App\Models\BusinessEntity;
 use App\Models\Microbusiness;
@@ -87,6 +88,25 @@ class FirestoreSyncService
     public function deleteContentCategory(ContentCategory $category): void
     {
         $this->deleteDocument('categorias', 'content_'.$category->id);
+    }
+
+    public function syncAlert(Alert $alert): void
+    {
+        $this->setDocument('alertas', (string) $alert->id, [
+            'source' => $alert->source,
+            'title' => $alert->title,
+            'description' => (string) ($alert->description ?? ''),
+            'linkUrl' => (string) ($alert->link_url ?? ''),
+            'sortOrder' => $alert->sort_order,
+            'isActive' => $alert->is_active,
+            'createdAt' => optional($alert->created_at)?->toIso8601String() ?? now()->toIso8601String(),
+            'updatedAt' => optional($alert->updated_at)?->toIso8601String() ?? now()->toIso8601String(),
+        ]);
+    }
+
+    public function deleteAlert(Alert $alert): void
+    {
+        $this->deleteDocument('alertas', (string) $alert->id);
     }
 
     public function syncMicrobusiness(Microbusiness $business): void

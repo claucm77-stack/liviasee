@@ -2,6 +2,7 @@
 
 use App\Constants\Roles;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\AlertController;
 use App\Http\Controllers\Admin\BusinessEntityController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\ContentCategoryController;
@@ -109,6 +110,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('microbusinesses', MicrobusinessController::class)->except(['show']);
         Route::resource('contents', ContentController::class)->except(['show']);
         Route::resource('content-categories', ContentCategoryController::class)->except(['show']);
+        Route::resource('alerts', AlertController::class)->except(['show']);
         Route::resource('entities', BusinessEntityController::class)->except(['show']);
         Route::get('/logs', [AuditLogController::class, 'index'])->name('logs.index');
         Route::get('/settings', [PlatformSettingController::class, 'edit'])->name('settings.edit');

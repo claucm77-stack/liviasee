@@ -6,6 +6,7 @@ use App\Constants\Roles;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessEntity;
 use App\Models\AuditLog;
+use App\Models\Alert;
 use App\Models\Content;
 use App\Models\ContentCategory;
 use App\Models\Microbusiness;
@@ -28,6 +29,59 @@ class MobileDataController extends Controller
     {
         $rows = ContentCategory::query()->orderBy('sort_order')->orderBy('name')->get()->map($this->categoryData(...));
         return response()->json(['data' => $rows]);
+    }
+
+    public function alerts(Request $request): JsonResponse
+    {
+        $isAdmin = Roles::normalize($request->user()->role) === Roles::ADMIN_TI;
+        $rows = Alert::query()
+            ->when(! $isAdmin, fn ($query) => $query->where('is_active', true))
+            ->orderBy('sort_order')
+            ->orderBy('source')
+            ->get()
+            ->map($this->alertData(...));
+
+        return response()->json(['data' => $rows]);
+    }
+
+    public function saveAlert(Request $request): JsonResponse
+    {
+        $this->requireAdmin($request);
+        $data = $request->validate([
+            'id' => ['nullable', 'integer', 'min:1'],
+            'source' => ['required', 'string', 'max:160'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'linkUrl' => ['nullable', 'url', 'max:2000'],
+            'sortOrder' => ['nullable', 'integer', 'min:0'],
+            'isActive' => ['nullable', 'boolean'],
+        ]);
+        $alert = filled($data['id'] ?? null)
+            ? Alert::query()->findOrFail((int) $data['id'])
+            : new Alert();
+        $alert->fill([
+            'source' => $data['source'],
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'link_url' => $data['linkUrl'] ?? null,
+            'sort_order' => $data['sortOrder'] ?? 0,
+            'is_active' => $data['isActive'] ?? true,
+        ])->save();
+        $this->firestore->syncAlert($alert);
+
+        return response()->json(
+            ['data' => $this->alertData($alert)],
+            $alert->wasRecentlyCreated ? 201 : 200,
+        );
+    }
+
+    public function deleteAlert(Request $request, Alert $alert): JsonResponse
+    {
+        $this->requireAdmin($request);
+        $this->firestore->deleteAlert($alert);
+        $alert->delete();
+
+        return response()->json([], 204);
     }
 
     public function users(Request $request): JsonResponse
@@ -443,6 +497,7 @@ class MobileDataController extends Controller
     }
 
     private function categoryData(ContentCategory $row): array { return ['id' => (string) ($row->external_id ?: $row->id), 'nombre' => $row->name, 'scope' => $row->scope, 'descripcion' => (string) $row->description, 'imageUrl' => $row->imageUrl(), 'orden' => $row->sort_order, 'isActive' => $row->is_active, 'createdAt' => optional($row->created_at)?->toIso8601String()]; }
+    private function alertData(Alert $row): array { return ['id' => (string) $row->id, 'source' => $row->source, 'title' => $row->title, 'description' => (string) $row->description, 'linkUrl' => (string) $row->link_url, 'sortOrder' => $row->sort_order, 'isActive' => $row->is_active, 'createdAt' => optional($row->created_at)?->toIso8601String(), 'updatedAt' => optional($row->updated_at)?->toIso8601String()]; }
     private function logData(AuditLog $row): array { return ['id' => (string) $row->id, 'usuarioId' => (string) ($row->user?->firebase_uid ?: $row->user_id ?: ''), 'accion' => $row->action, 'modulo' => $row->module, 'fecha' => optional($row->created_at)?->toIso8601String(), 'origen' => (string) data_get($row->metadata, 'origin', 'laravel'), 'detalle' => $row->description]; }
     private function contentData(Content $row): array { $payload = json_decode((string) $row->body, true) ?: []; $data = $payload['data'] ?? []; $type = $row->type === 'articulo' ? 'texto' : $row->type; $authorName = trim((string) ($data['author_name'] ?? '')); if ($authorName === '' && filled($row->author_id)) { $authorId = (string) $row->author_id; $authorName = (string) (User::query()->where('firebase_uid', $authorId)->orWhere(fn ($query) => ctype_digit($authorId) ? $query->whereKey((int) $authorId) : $query->whereRaw('1 = 0'))->value('name') ?? ''); } return ['id' => (string) ($row->external_id ?: $row->id), 'titulo' => $row->title, 'descripcion' => (string) $row->summary, 'tipo' => $type, 'url' => $type === 'video' ? ($data['video_url'] ?? '') : ($type === 'pdf' ? ($data['pdf_url'] ?? '') : ($type === 'evento' ? ($data['registration_url'] ?? '') : '')), 'contenido' => $type === 'video' ? ($data['transcript'] ?? '') : ($type === 'pdf' ? ($data['instructions'] ?? '') : ($type === 'evento' ? ($data['agenda'] ?? '') : ($data['body'] ?? ''))), 'imagen' => (string) ($payload['image_url'] ?? ''), 'categoria' => $row->contentCategory?->name ?? ($payload['category'] ?? ''), 'autorId' => (string) $row->author_id, 'autorNombre' => $authorName, 'fechaCreacion' => optional($row->created_at)?->toIso8601String(), 'estado' => $row->status === 'publicado' ? 'activo' : 'inactivo', 'destacado' => $row->featured, 'favoritos' => $row->favorites ?? [], 'vistos' => $row->views ?? [], 'metadata' => $data]; }
     private function microbusinessData(Microbusiness $row): array { return ['id' => (string) ($row->external_id ?: $row->id), 'nombre' => $row->name, 'descripcion' => (string) $row->description, 'categoria' => (string) $row->category, 'direccion' => (string) $row->address, 'latitud' => $row->latitude, 'longitud' => $row->longitude, 'mapsUrl' => (string) $row->maps_url, 'imagen' => $row->imageUrl(), 'propietarioId' => (string) $row->owner_id, 'contacto' => (string) $row->contact, 'horario' => (string) $row->schedule, 'estado' => $row->status, 'fechaCreacion' => optional($row->created_on_app_at ?? $row->created_at)?->toIso8601String(), 'favoritos' => $row->favorites ?? [], 'ratingPromedio' => $row->average_rating, 'totalCalificaciones' => $row->ratings_count, 'campos' => $row->custom_fields ?? []]; }

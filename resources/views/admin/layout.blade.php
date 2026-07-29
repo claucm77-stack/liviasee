@@ -36,6 +36,7 @@
                                 <a href="{{ route('admin.microbusinesses.index') }}">Micronegocios</a>
                                 <a href="{{ route('admin.contents.index') }}">Contenidos</a>
                                 <a href="{{ route('admin.content-categories.index') }}">Categorías</a>
+                                <a href="{{ route('admin.alerts.index') }}">Alertas</a>
                                 <a href="{{ route('admin.entities.index') }}">Entidades</a>
                                 <a href="{{ route('admin.logs.index') }}">Logs</a>
                                 <a href="{{ route('admin.settings.edit') }}">Configuración</a>

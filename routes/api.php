@@ -52,6 +52,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/categories', [MobileDataController::class, 'categories']);
         Route::post('/categories', [MobileDataController::class, 'saveCategory']);
         Route::delete('/categories/{id}', [MobileDataController::class, 'deleteCategory']);
+        Route::get('/alerts', [MobileDataController::class, 'alerts']);
+        Route::post('/alerts', [MobileDataController::class, 'saveAlert']);
+        Route::delete('/alerts/{alert}', [MobileDataController::class, 'deleteAlert']);
         Route::get('/contents', [MobileDataController::class, 'contents']);
         Route::post('/contents', [MobileDataController::class, 'saveContent']);
         Route::delete('/contents/{id}', [MobileDataController::class, 'deleteContent']);

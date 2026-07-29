@@ -36,6 +36,13 @@ class AdminDashboardScreen extends StatelessWidget {
           color: AppColors.secondary,
         ),
         RoleHomeAction(
+          label: 'Alertas',
+          description: 'Crea y modifica noticias y avisos oficiales',
+          icon: Icons.notifications_active_outlined,
+          route: '/noticias',
+          color: AppColors.warning,
+        ),
+        RoleHomeAction(
           label: 'Categorías',
           description: 'Áreas de contenidos y tipos de micronegocios',
           icon: Icons.category_outlined,
