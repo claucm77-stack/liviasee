@@ -35,6 +35,7 @@
                         <th class="text-left px-3 py-2 border-b">Email</th>
                         <th class="text-left px-3 py-2 border-b">Rol</th>
                         <th class="text-left px-3 py-2 border-b">Estado</th>
+                        <th class="text-left px-3 py-2 border-b">Acceso app</th>
                         <th class="text-left px-3 py-2 border-b">Acciones</th>
                     </tr>
                 </thead>
@@ -62,6 +63,13 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2">
+                                @if (($user['app_linked'] ?? false))
+                                    <span class="text-green-700 font-medium">Vinculado</span>
+                                @else
+                                    <span class="text-amber-700 font-medium">Pendiente de vincular</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2">
                                 <div class="flex gap-2">
                                     <a href="{{ route('admin.users.edit', $userIdentifier) }}" class="text-blue-700 hover:underline">Editar</a>
 
@@ -77,7 +85,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-3 py-4 text-center text-gray-500">No hay usuarios.</td>
+                            <td colspan="6" class="px-3 py-4 text-center text-gray-500">No hay usuarios registrados en Laravel.</td>
                         </tr>
                     @endforelse
                 </tbody>

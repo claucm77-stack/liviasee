@@ -8,10 +8,8 @@ use App\Models\User;
 use App\Services\FirebaseUserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
 use Throwable;
@@ -24,30 +22,31 @@ class UserController extends Controller
 
     public function index(Request $request): View
     {
-        $search = (string) $request->query('search', '');
-        $page = (int) $request->query('page', 1);
+        $search = trim((string) $request->query('search', ''));
+        $users = User::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('email', 'like', '%'.$search.'%');
+                });
+            })
+            ->orderBy('name')
+            ->orderBy('email')
+            ->paginate(10)
+            ->withQueryString()
+            ->through(fn (User $user) => [
+                'id' => $user->id,
+                'uid' => $user->firebase_uid ?: (string) $user->id,
+                'firebase_uid' => $user->firebase_uid,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'is_active' => (bool) $user->is_active,
+                'description' => (string) ($user->teacher_description ?? ''),
+                'app_linked' => filled($user->firebase_uid),
+            ]);
 
-        try {
-            $users = $this->firebaseUsers->paginateUsers($search, 10, max(1, $page));
-
-            return view('admin.users.index', compact('users', 'search'));
-        } catch (Throwable $e) {
-            $users = new LengthAwarePaginator(
-                [],
-                0,
-                10,
-                max(1, $page),
-                [
-                    'path' => $request->url(),
-                    'query' => $request->query(),
-                ]
-            );
-
-            return view('admin.users.index', compact('users', 'search'))
-                ->withErrors([
-                    'firebase' => 'No se pudo obtener usuarios de Firebase: '.$e->getMessage(),
-                ]);
-        }
+        return view('admin.users.index', compact('users', 'search'));
     }
 
     public function create(): View
@@ -136,18 +135,9 @@ class UserController extends Controller
             ]);
         }
 
-        $firebaseUser = $this->firebaseUsers->getUserByUid($user);
-
-        if ($firebaseUser) {
-            return view('admin.users.form', [
-                'user' => $firebaseUser,
-                'isEdit' => true,
-            ]);
-        }
-
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'Usuario no encontrado.');
+            ->with('status', 'Usuario no encontrado en la base de datos de Laravel.');
     }
 
     public function update(Request $request, string $user): RedirectResponse

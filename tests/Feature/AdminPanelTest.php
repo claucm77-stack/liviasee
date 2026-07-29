@@ -62,6 +62,45 @@ class AdminPanelTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_users_index_only_displays_users_persisted_in_laravel(): void
+    {
+        $admin = User::factory()->create([
+            'name' => 'Administrador Laravel',
+            'role' => Roles::ADMIN_TI,
+            'is_active' => true,
+        ]);
+        $localUser = User::factory()->create([
+            'name' => 'Usuario Real Laravel',
+            'email' => 'real-laravel@example.com',
+            'firebase_uid' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.index'));
+
+        $response->assertOk()
+            ->assertSee('Usuario Real Laravel')
+            ->assertSee('real-laravel@example.com')
+            ->assertSee('Pendiente de vincular');
+
+        $this->assertDatabaseHas('users', ['id' => $localUser->id]);
+    }
+
+    public function test_admin_cannot_edit_a_firebase_only_identifier(): void
+    {
+        $admin = User::factory()->create([
+            'role' => Roles::ADMIN_TI,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.edit', ['user' => 'firebase-only-user']))
+            ->assertRedirect(route('admin.users.index'))
+            ->assertSessionHas(
+                'status',
+                'Usuario no encontrado en la base de datos de Laravel.',
+            );
+    }
+
     public function test_admin_can_edit_content_assigned_to_an_inactive_category(): void
     {
         $admin = User::factory()->create([
