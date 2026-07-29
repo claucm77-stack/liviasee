@@ -136,6 +136,22 @@ class MobileBidirectionalSyncTest extends TestCase
         ]);
     }
 
+    public function test_invalid_firebase_identity_returns_actionable_google_error(): void
+    {
+        $firebase = Mockery::mock(FirebaseTokenService::class);
+        $firebase->shouldReceive('verify')->once()->andThrow(
+            new \RuntimeException('Service account project mismatch.')
+        );
+        $this->app->instance(FirebaseTokenService::class, $firebase);
+
+        $this->postJson('/api/auth/firebase', ['id_token' => 'invalid-token'])
+            ->assertUnauthorized()
+            ->assertJsonPath(
+                'message',
+                'No fue posible validar la sesión con Google. Intenta nuevamente.'
+            );
+    }
+
     public function test_firebase_session_reports_when_required_microbusiness_is_registered(): void
     {
         $owner = User::factory()->create([

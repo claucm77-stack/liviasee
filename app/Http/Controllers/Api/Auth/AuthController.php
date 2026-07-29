@@ -10,6 +10,7 @@ use App\Constants\Roles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -25,8 +26,15 @@ class AuthController extends Controller
 
         try {
             $identity = $firebase->verify($validated['id_token']);
-        } catch (Throwable) {
-            return response()->json(['message' => 'Token de Firebase inválido.'], 401);
+        } catch (Throwable $exception) {
+            Log::warning('No fue posible validar el token Firebase de la app.', [
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'No fue posible validar la sesión con Google. Intenta nuevamente.',
+            ], 401);
         }
 
         if ($identity['email'] === '') {

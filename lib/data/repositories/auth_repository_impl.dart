@@ -99,33 +99,57 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = credential.user;
       if (user == null) return null;
 
+      final authoritativeUser = await _authoritativeUser(user);
+
       try {
         final profile = await getUserProfile(user.uid);
-        if (profile != null) return _authoritativeUser(user);
+        if (profile != null) return authoritativeUser;
       } on FirebaseException {
-        // Continue and create the basic profile from the Google account.
+        // Laravel is authoritative; Firestore is only a cache.
       }
 
       final newUser = AppUserModel(
         uid: user.uid,
-        name: user.displayName ?? '',
-        email: user.email ?? '',
-        role: AppRoles.microempresario,
-        photoUrl: user.photoURL ?? '',
-        createdAt: DateTime.now(),
-        isActive: true,
-        hasMicrobusiness: false,
-        description: '',
+        name: authoritativeUser.name,
+        email: authoritativeUser.email,
+        role: authoritativeUser.role,
+        photoUrl: authoritativeUser.photoUrl,
+        createdAt: authoritativeUser.createdAt ?? DateTime.now(),
+        isActive: authoritativeUser.isActive,
+        hasMicrobusiness: authoritativeUser.hasMicrobusiness,
+        description: authoritativeUser.description,
       );
 
-      await _firestoreService.setUserProfile(
-        uid: user.uid,
-        data: newUser.toMap(),
-      );
+      try {
+        await _firestoreService.setUserProfile(
+          uid: user.uid,
+          data: newUser.toMap(),
+        );
+      } on FirebaseException {
+        // A cache failure must not invalidate a valid Laravel session.
+      }
 
-      return _authoritativeUser(user);
+      return authoritativeUser;
     } on FirebaseAuthException catch (e) {
+      await _rollbackFailedSignIn();
       throw Exception(_mapFirebaseAuthError(e));
+    } on ApiException catch (e) {
+      await _rollbackFailedSignIn();
+      throw Exception(e.message);
+    } catch (_) {
+      await _rollbackFailedSignIn();
+      throw Exception(
+        'No fue posible completar el ingreso con Google. Intenta nuevamente.',
+      );
+    }
+  }
+
+  Future<void> _rollbackFailedSignIn() async {
+    _laravelApiService.removeToken();
+    try {
+      await _authService.signOut();
+    } catch (_) {
+      // Preserve the original authentication error.
     }
   }
 
@@ -264,6 +288,8 @@ class AuthRepositoryImpl implements AuthRepository {
         return 'Este dominio no está autorizado para iniciar con Google.';
       case 'operation-not-allowed':
         return 'El acceso con Google no está habilitado en Firebase.';
+      case 'missing-google-id-token':
+        return 'Google no pudo validar esta aplicación. Actualiza la app e intenta nuevamente.';
       default:
         return 'Ocurrió un error de autenticación. Intenta nuevamente.';
     }
