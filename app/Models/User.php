@@ -25,6 +25,7 @@ class User extends Authenticatable
         'firebase_uid',
         'photo_url',
         'photo_path',
+        'teacher_description',
         'name',
         'email',
         'password',

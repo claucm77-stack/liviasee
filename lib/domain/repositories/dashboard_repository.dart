@@ -23,6 +23,7 @@ abstract class DashboardRepository {
     required String uid,
     required String role,
     required bool isActive,
+    required String description,
   });
 
   Future<void> updateContentStatus({

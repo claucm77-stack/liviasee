@@ -154,7 +154,9 @@ class UsersViewScreen extends ConsumerWidget {
   ) async {
     var selectedRole = user.role as String;
     var isActive = user.isActive as bool;
-    final result = await showDialog<(String, bool)>(
+    final descriptionCtrl =
+        TextEditingController(text: user.description as String);
+    final result = await showDialog<(String, bool, String)>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
@@ -193,6 +195,17 @@ class UsersViewScreen extends ConsumerWidget {
                 title: const Text('Usuario activo'),
                 onChanged: (value) => setState(() => isActive = value),
               ),
+              TextField(
+                controller: descriptionCtrl,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: 2000,
+                decoration: const InputDecoration(
+                  labelText: 'Descripción del docente',
+                  hintText: 'Experiencia, especialidad y acompañamiento.',
+                  alignLabelWithHint: true,
+                ),
+              ),
             ],
           ),
           actions: [
@@ -201,7 +214,10 @@ class UsersViewScreen extends ConsumerWidget {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, (selectedRole, isActive)),
+              onPressed: () => Navigator.pop(
+                context,
+                (selectedRole, isActive, descriptionCtrl.text.trim()),
+              ),
               child: const Text('Guardar'),
             ),
           ],
@@ -209,12 +225,17 @@ class UsersViewScreen extends ConsumerWidget {
       ),
     );
 
-    if (result == null) return;
+    if (result == null) {
+      descriptionCtrl.dispose();
+      return;
+    }
     await ref.read(dashboardViewModelProvider.notifier).updateUser(
           user: user,
           role: result.$1,
           isActive: result.$2,
+          description: result.$3,
         );
+    descriptionCtrl.dispose();
   }
 
   Future<void> _exportUsers(List<dynamic> users) async {

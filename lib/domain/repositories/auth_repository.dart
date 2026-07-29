@@ -29,6 +29,7 @@ abstract class AuthRepository {
     required String name,
     required String email,
     required String photoUrl,
+    required String description,
   });
 
   Future<AppUser> uploadProfilePhoto({

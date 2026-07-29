@@ -55,6 +55,7 @@ class AuthRepositoryImpl implements AuthRepository {
       createdAt: session.user.createdAt ?? cachedProfile?.createdAt,
       isActive: session.user.isActive,
       hasMicrobusiness: session.user.hasMicrobusiness,
+      description: session.user.description,
     );
   }
 
@@ -114,6 +115,7 @@ class AuthRepositoryImpl implements AuthRepository {
         createdAt: DateTime.now(),
         isActive: true,
         hasMicrobusiness: false,
+        description: '',
       );
 
       await _firestoreService.setUserProfile(
@@ -180,10 +182,12 @@ class AuthRepositoryImpl implements AuthRepository {
     required String name,
     required String email,
     required String photoUrl,
+    required String description,
   }) async {
     final saved = await _laravelApiService.saveMobileData('profile', {
       'name': name,
       'photoUrl': photoUrl,
+      'description': description,
     });
     final updated = AppUserModel(
       uid: user.uid,
@@ -193,6 +197,7 @@ class AuthRepositoryImpl implements AuthRepository {
       photoUrl: (saved['photoUrl'] ?? photoUrl).toString(),
       createdAt: user.createdAt,
       hasMicrobusiness: user.hasMicrobusiness,
+      description: (saved['description'] ?? description).toString(),
     );
 
     try {

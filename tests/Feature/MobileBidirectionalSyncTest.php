@@ -199,6 +199,42 @@ class MobileBidirectionalSyncTest extends TestCase
         ]);
     }
 
+    public function test_teacher_can_update_own_description_and_admin_can_update_it(): void
+    {
+        $teacher = User::factory()->create([
+            'firebase_uid' => 'firebase-teacher-description',
+            'role' => Roles::DOCENTE,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($teacher);
+        $this->postJson('/api/mobile/profile', [
+            'name' => $teacher->name,
+            'photoUrl' => '',
+            'description' => 'Acompaño procesos de innovación empresarial.',
+        ])->assertOk()
+            ->assertJsonPath(
+                'data.description',
+                'Acompaño procesos de innovación empresarial.',
+            );
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/mobile/users/firebase-teacher-description', [
+            'role' => Roles::DOCENTE,
+            'isActive' => true,
+            'description' => 'Docente especialista en innovación y estrategia.',
+        ])->assertOk()
+            ->assertJsonPath(
+                'data.description',
+                'Docente especialista en innovación y estrategia.',
+            );
+
+        $this->assertDatabaseHas('users', [
+            'id' => $teacher->id,
+            'teacher_description' => 'Docente especialista en innovación y estrategia.',
+        ]);
+    }
+
     public function test_mobile_profile_photo_is_stored_and_served_by_laravel(): void
     {
         Storage::fake('public');

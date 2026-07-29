@@ -11,6 +11,7 @@ class AppUserModel extends AppUser {
     super.createdAt,
     super.isActive,
     super.hasMicrobusiness,
+    super.description,
   });
 
   factory AppUserModel.fromFirebase({
@@ -26,6 +27,7 @@ class AppUserModel extends AppUser {
       createdAt: null,
       isActive: true,
       hasMicrobusiness: false,
+      description: '',
     );
   }
 
@@ -43,6 +45,7 @@ class AppUserModel extends AppUser {
       hasMicrobusiness:
           (map['hasMicrobusiness'] ?? map['has_microbusiness'] ?? false) ==
               true,
+      description: (map['description'] ?? map['descripcion'] ?? '').toString(),
     );
   }
 
@@ -57,6 +60,7 @@ class AppUserModel extends AppUser {
       'createdAt': createdAt?.toIso8601String(),
       'isActive': isActive,
       'hasMicrobusiness': hasMicrobusiness,
+      'description': description,
     };
   }
 

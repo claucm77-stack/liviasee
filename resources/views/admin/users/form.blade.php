@@ -75,6 +75,18 @@
                 </select>
             </div>
 
+            <div>
+                <label class="block text-sm font-medium mb-1">Descripción del docente</label>
+                <textarea
+                    name="description"
+                    rows="4"
+                    maxlength="2000"
+                    class="border rounded-md px-3 py-2 w-full"
+                    placeholder="Experiencia, especialidad y tipo de acompañamiento que ofrece"
+                >{{ old('description', data_get($user, 'description')) }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">Se mostrará en la app cuando el usuario tenga rol docente.</p>
+            </div>
+
             <div class="flex items-center gap-2">
                 @php $active = old('is_active', data_get($user, 'is_active', true)); @endphp
                 <input type="checkbox" name="is_active" value="1" {{ $active ? 'checked' : '' }}>

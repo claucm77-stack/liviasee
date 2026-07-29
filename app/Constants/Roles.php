@@ -141,6 +141,11 @@ abstract class Roles
             || in_array(self::normalize($role), [self::DOCENTE, self::DOCENTE_ADMIN], true);
     }
 
+    public static function isTeacher(string $role): bool
+    {
+        return in_array(self::normalize($role), [self::DOCENTE, self::DOCENTE_ADMIN], true);
+    }
+
     /**
      * Get role display name (Spanish).
      */

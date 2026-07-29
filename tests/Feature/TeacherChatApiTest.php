@@ -22,6 +22,7 @@ class TeacherChatApiTest extends TestCase
             'name' => 'Docente Real',
             'role' => Roles::DOCENTE,
             'is_active' => true,
+            'teacher_description' => 'Especialista en mercadeo y ventas.',
         ]);
         Sanctum::actingAs($user);
 
@@ -91,6 +92,7 @@ class TeacherChatApiTest extends TestCase
             'name' => 'Docente Real',
             'role' => Roles::DOCENTE,
             'is_active' => true,
+            'teacher_description' => 'Especialista en mercadeo y ventas.',
         ]);
         User::factory()->create([
             'name' => 'Docente Inactivo',
@@ -109,6 +111,7 @@ class TeacherChatApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.uid', (string) $teacher->id)
             ->assertJsonPath('data.0.name', 'Docente Real')
+            ->assertJsonPath('data.0.description', 'Especialista en mercadeo y ventas.')
             ->assertJsonMissing(['name' => 'Docente Inactivo'])
             ->assertJsonMissing(['name' => 'Usuario Regular']);
     }

@@ -194,6 +194,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
     required String name,
     required String email,
     required String photoUrl,
+    required String description,
   }) async {
     final current = state.user;
     if (current == null) {
@@ -222,6 +223,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
             name: name.trim(),
             email: email.trim(),
             photoUrl: photoUrl.trim(),
+            description: description.trim(),
           );
 
       state = state.copyWith(

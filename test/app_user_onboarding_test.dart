@@ -9,9 +9,14 @@ void main() {
       'email': 'nuevo@example.com',
       'role': 'microempresario',
       'has_microbusiness': false,
+      'description': 'Docente especialista en emprendimiento.',
     });
 
     expect(incomplete.hasMicrobusiness, isFalse);
+    expect(
+      incomplete.description,
+      'Docente especialista en emprendimiento.',
+    );
 
     final complete = incomplete.copyWith(hasMicrobusiness: true);
     expect(complete.hasMicrobusiness, isTrue);

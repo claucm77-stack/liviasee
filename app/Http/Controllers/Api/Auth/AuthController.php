@@ -69,6 +69,7 @@ class AuthController extends Controller
                 'role_display_name' => $user->getRoleDisplayName(),
                 'is_active' => $user->is_active,
                 'has_microbusiness' => $user->hasMicrobusiness(),
+                'description' => (string) ($user->teacher_description ?? ''),
             ],
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
@@ -167,6 +168,7 @@ class AuthController extends Controller
                 'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
                 'has_microbusiness' => $user->hasMicrobusiness(),
+                'description' => (string) ($user->teacher_description ?? ''),
             ],
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
@@ -222,6 +224,7 @@ class AuthController extends Controller
             'is_active' => $user->is_active,
             'created_at' => $user->created_at,
             'has_microbusiness' => $user->hasMicrobusiness(),
+            'description' => (string) ($user->teacher_description ?? ''),
         ]);
     }
 
@@ -266,6 +269,7 @@ class AuthController extends Controller
                 'is_active' => $user->is_active,
                 'created_at' => $user->created_at,
                 'has_microbusiness' => $user->hasMicrobusiness(),
+                'description' => (string) ($user->teacher_description ?? ''),
             ],
             'token' => $newToken->plainTextToken,
             'expires_at' => $newToken->accessToken->expires_at,

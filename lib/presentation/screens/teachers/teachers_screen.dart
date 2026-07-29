@@ -89,7 +89,8 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
               .where((teacher) =>
                   q.isEmpty ||
                   teacher.name.toLowerCase().contains(q) ||
-                  teacher.area.toLowerCase().contains(q))
+                  teacher.area.toLowerCase().contains(q) ||
+                  teacher.description.toLowerCase().contains(q))
               .toList();
 
           return ListView(
@@ -244,6 +245,18 @@ class _TeacherTile extends ConsumerWidget {
                       height: 1.2,
                     ),
               ),
+              if (teacher.description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  teacher.description,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF555555),
+                        height: 1.3,
+                      ),
+                ),
+              ],
               StreamBuilder(
                 stream: ref
                     .watch(firestoreServiceProvider)
@@ -298,12 +311,14 @@ class _Teacher {
     required this.name,
     required this.area,
     required this.imageUrl,
+    required this.description,
   });
 
   final String id;
   final String name;
   final String area;
   final String imageUrl;
+  final String description;
 
   factory _Teacher.fromMap(Map<String, dynamic> map) {
     return _Teacher(
@@ -311,6 +326,7 @@ class _Teacher {
       name: (map['name'] ?? '').toString(),
       area: (map['roleLabel'] ?? 'Docente').toString(),
       imageUrl: (map['photoUrl'] ?? '').toString(),
+      description: (map['description'] ?? '').toString(),
     );
   }
 }

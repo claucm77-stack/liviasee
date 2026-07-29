@@ -97,6 +97,7 @@ class FirebaseUserService
             'role' => Roles::normalize((string) $payload['role']),
             'rol' => Roles::normalize((string) $payload['role']),
             'is_active' => (bool) ($payload['is_active'] ?? true),
+            'description' => trim((string) ($payload['description'] ?? '')),
         ]);
 
         return $uid;
@@ -122,6 +123,7 @@ class FirebaseUserService
             'role' => Roles::normalize((string) $payload['role']),
             'rol' => Roles::normalize((string) $payload['role']),
             'is_active' => (bool) ($payload['is_active'] ?? true),
+            'description' => trim((string) ($payload['description'] ?? '')),
         ]);
     }
 
@@ -150,6 +152,7 @@ class FirebaseUserService
             'is_active' => isset($profile['is_active'])
                 ? (bool) $profile['is_active']
                 : ($localUser ? (bool) $localUser->is_active : !$user->disabled),
+            'description' => (string) ($localUser?->teacher_description ?? $profile['description'] ?? ''),
         ];
     }
 

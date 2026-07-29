@@ -94,6 +94,7 @@ class MobileDataController extends Controller
             'rol' => $user->role,
             'role' => $user->role,
             'photoUrl' => $user->photoUrl(),
+            'description' => (string) ($user->teacher_description ?? ''),
             'isActive' => $user->is_active,
             'createdAt' => optional($user->created_at)?->toIso8601String(),
         ])]);
@@ -120,6 +121,7 @@ class MobileDataController extends Controller
                 'role' => Roles::normalize($user->role),
                 'roleLabel' => Roles::getDisplayName($user->role),
                 'photoUrl' => $user->photoUrl(),
+                'description' => (string) ($user->teacher_description ?? ''),
             ]);
 
         return response()->json(['data' => $teachers]);
@@ -166,9 +168,13 @@ class MobileDataController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'photoUrl' => ['nullable', 'string', 'max:2000'],
+            'description' => ['nullable', 'string', 'max:2000'],
         ]);
         $user = $request->user();
         $updates = ['name' => $data['name']];
+        if (Roles::isTeacher($user->role)) {
+            $updates['teacher_description'] = trim((string) ($data['description'] ?? ''));
+        }
         $requestedPhoto = (string) ($data['photoUrl'] ?? '');
         if ($requestedPhoto !== $user->photoUrl()) {
             if ($user->photo_path) {
@@ -184,6 +190,7 @@ class MobileDataController extends Controller
             'email' => $user->email,
             'role' => $user->role,
             'photoUrl' => $user->photoUrl(),
+            'description' => (string) ($user->teacher_description ?? ''),
         ]]);
     }
 
@@ -219,17 +226,25 @@ class MobileDataController extends Controller
         $data = $request->validate([
             'role' => ['required', 'in:'.implode(',', Roles::active())],
             'isActive' => ['required', 'boolean'],
+            'description' => ['nullable', 'string', 'max:2000'],
         ]);
         $user = ctype_digit($id)
             ? User::query()->find((int) $id)
             : User::query()->where('firebase_uid', $id)->first();
         abort_unless($user, 404);
-        $user->update(['role' => $data['role'], 'is_active' => $data['isActive']]);
+        $user->update([
+            'role' => $data['role'],
+            'is_active' => $data['isActive'],
+            'teacher_description' => Roles::isTeacher($data['role'])
+                ? trim((string) ($data['description'] ?? $user->teacher_description))
+                : $user->teacher_description,
+        ]);
         return response()->json(['data' => [
             'uid' => (string) ($user->firebase_uid ?: $user->id),
             'name' => $user->name, 'email' => $user->email,
             'role' => $user->role, 'rol' => $user->role,
             'isActive' => $user->is_active,
+            'description' => (string) ($user->teacher_description ?? ''),
         ]]);
     }
 

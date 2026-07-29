@@ -21,6 +21,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _photoCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
   String? _loadedUid;
   bool _isUploadingPhoto = false;
 
@@ -33,6 +34,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _photoCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
   }
 
@@ -43,6 +45,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameCtrl.text = user.name;
     _emailCtrl.text = user.email;
     _photoCtrl.text = user.photoUrl;
+    _descriptionCtrl.text = user.description;
   }
 
   Future<void> _saveProfile() async {
@@ -52,6 +55,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           photoUrl: _photoCtrl.text.trim(),
+          description: _descriptionCtrl.text.trim(),
         );
 
     if (!mounted) return;
@@ -330,6 +334,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ? 'Ingresa un correo válido.'
                         : null,
                   ),
+                  if (AppRoles.isDocente(state.user?.role)) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _descriptionCtrl,
+                      minLines: 3,
+                      maxLines: 6,
+                      maxLength: 2000,
+                      decoration: const InputDecoration(
+                        labelText: 'Descripción profesional',
+                        hintText:
+                            'Describe tu experiencia, especialidad y acompañamiento.',
+                        prefixIcon: Icon(Icons.description_outlined),
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _ProfileImageUploadField(
                     imageUrl: _photoCtrl.text,

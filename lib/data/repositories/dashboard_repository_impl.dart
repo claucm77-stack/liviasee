@@ -166,10 +166,12 @@ class DashboardRepositoryImpl implements DashboardRepository {
     required String uid,
     required String role,
     required bool isActive,
+    required String description,
   }) async {
     await _laravelApiService.saveMobileData('users/$uid', {
       'role': role,
       'isActive': isActive,
+      'description': description,
     });
   }
 

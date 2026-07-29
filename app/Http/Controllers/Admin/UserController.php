@@ -59,6 +59,7 @@ class UserController extends Controller
                 'email' => '',
                 'role' => Roles::DEFAULT,
                 'is_active' => true,
+                'description' => '',
             ],
             'isEdit' => false,
         ]);
@@ -72,6 +73,7 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', 'in:'.implode(',', Roles::active())],
             'is_active' => ['nullable', 'boolean'],
+            'description' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
@@ -84,6 +86,7 @@ class UserController extends Controller
             'role' => Roles::normalize($validated['role']),
             'is_active' => $validated['is_active'],
             'email_verified_at' => now(),
+            'teacher_description' => trim((string) ($validated['description'] ?? '')),
         ]);
 
         $statusMessage = 'Usuario creado correctamente.';
@@ -124,6 +127,7 @@ class UserController extends Controller
                 'email' => $localUser->email,
                 'role' => $localUser->role,
                 'is_active' => (bool) $localUser->is_active,
+                'description' => (string) ($localUser->teacher_description ?? ''),
             ];
 
             return view('admin.users.form', [
@@ -170,6 +174,7 @@ class UserController extends Controller
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', 'in:'.implode(',', Roles::active())],
             'is_active' => ['nullable', 'boolean'],
+            'description' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
@@ -179,6 +184,7 @@ class UserController extends Controller
             'email' => $validated['email'],
             'role' => Roles::normalize($validated['role']),
             'is_active' => $validated['is_active'],
+            'teacher_description' => trim((string) ($validated['description'] ?? '')),
         ]);
 
         if (!empty($validated['password'])) {

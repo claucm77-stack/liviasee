@@ -277,11 +277,13 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
     required AppUserModel user,
     required String role,
     required bool isActive,
+    required String description,
   }) async {
     await _ref.read(dashboardRepositoryProvider).updateUser(
           uid: user.uid,
           role: role,
           isActive: isActive,
+          description: description,
         );
     _subscribeUsers();
     await addLog(
