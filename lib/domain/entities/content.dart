@@ -47,6 +47,29 @@ class Content extends Equatable {
 
   bool isViewedBy(String userId) => vistos.contains(userId);
 
+  Uri? get externalUri {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null ||
+        !uri.hasScheme ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return null;
+    }
+    return uri;
+  }
+
+  bool get hasReadableDetails =>
+      contenido.trim().isNotEmpty ||
+      descripcion.trim().isNotEmpty ||
+      (tipo == ContentType.evento &&
+          metadata.values.any((value) => value.toString().trim().isNotEmpty));
+
+  bool get hasUsableDestination {
+    if (tipo == ContentType.video || tipo == ContentType.pdf) {
+      return externalUri != null || hasReadableDetails;
+    }
+    return hasReadableDetails || externalUri != null;
+  }
+
   Content copyWith({
     String? id,
     String? titulo,

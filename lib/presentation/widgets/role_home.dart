@@ -7,7 +7,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_roles.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/category_viewmodel.dart';
-import '../viewmodels/content_viewmodel.dart';
 
 class RoleHomeAction {
   const RoleHomeAction({
@@ -143,11 +142,13 @@ class RoleHomeScreen extends ConsumerWidget {
                   final card = categoryCards[index];
                   return _LearningCard(
                     card: card,
-                    onTap: () async {
-                      await ref
-                          .read(contentViewModelProvider.notifier)
-                          .setCategory(card.categoryName);
-                      if (context.mounted) context.go('/contenidos');
+                    onTap: () {
+                      context.go(
+                        Uri(
+                          path: '/contenidos',
+                          queryParameters: {'category': card.categoryName},
+                        ).toString(),
+                      );
                     },
                   );
                 },

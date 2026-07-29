@@ -177,7 +177,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/contenidos',
-        builder: (context, state) => const ContentListScreen(),
+        builder: (context, state) => ContentListScreen(
+          initialCategory: state.uri.queryParameters['category'],
+        ),
       ),
       GoRoute(
         path: '/foros',

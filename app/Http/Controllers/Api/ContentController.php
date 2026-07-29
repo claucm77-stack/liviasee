@@ -21,7 +21,9 @@ class ContentController extends Controller
 
         $contents = $query->paginate($perPage);
 
-        $data = $contents->getCollection()->map(function (Content $content) {
+        $data = $contents->getCollection()
+            ->filter->hasUsableDestination()
+            ->map(function (Content $content) {
             $payload = $this->decodePayload($content);
             $metadata = $payload['data'] ?? [];
             $type = (string) ($content->type ?? 'articulo');
@@ -48,7 +50,7 @@ class ContentController extends Controller
                     'metadata' => $metadata,
                 ];
 
-        });
+            });
 
 
         return response()->json([

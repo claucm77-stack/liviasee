@@ -31,6 +31,7 @@
                         <th class="text-left px-3 py-2 border-b">Tipo</th>
                         <th class="text-left px-3 py-2 border-b">Categoría app</th>
                         <th class="text-left px-3 py-2 border-b">Estado</th>
+                        <th class="text-left px-3 py-2 border-b">Destino</th>
                         <th class="text-left px-3 py-2 border-b">Publicado</th>
                         <th class="text-left px-3 py-2 border-b">Acciones</th>
                     </tr>
@@ -57,6 +58,13 @@
                             </td>
                             <td class="px-3 py-2">{{ $category }}</td>
                             <td class="px-3 py-2">{{ ucfirst($item->status) }}</td>
+                            <td class="px-3 py-2">
+                                @if ($item->hasUsableDestination())
+                                    <span class="text-green-700 font-medium">Disponible</span>
+                                @else
+                                    <span class="text-red-700 font-medium">Requiere corrección</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-2">{{ $item->published_at?->format('Y-m-d H:i') ?? '-' }}</td>
                             <td class="px-3 py-2">
                                 <div class="flex gap-2">
@@ -71,7 +79,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-3 py-4 text-center text-gray-500">No hay contenidos registrados.</td>
+                            <td colspan="8" class="px-3 py-4 text-center text-gray-500">No hay contenidos registrados.</td>
                         </tr>
                     @endforelse
                 </tbody>

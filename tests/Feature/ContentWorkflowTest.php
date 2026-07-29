@@ -97,6 +97,15 @@ class ContentWorkflowTest extends TestCase
             'title' => 'Contenido publicado',
             'slug' => 'contenido-publicado',
             'type' => 'articulo',
+            'body' => json_encode(['data' => ['body' => 'Artículo completo']]),
+            'status' => 'publicado',
+            'published_at' => now(),
+        ]);
+        Content::query()->create([
+            'title' => 'PDF sin enlace',
+            'slug' => 'pdf-sin-enlace',
+            'type' => 'pdf',
+            'body' => json_encode(['data' => ['pdf_url' => '']]),
             'status' => 'publicado',
             'published_at' => now(),
         ]);
@@ -116,6 +125,23 @@ class ContentWorkflowTest extends TestCase
         $this->getJson('/api/mobile/contents')
             ->assertOk()
             ->assertJsonFragment(['titulo' => 'Contenido publicado'])
+            ->assertJsonMissing(['titulo' => 'PDF sin enlace'])
             ->assertJsonMissing(['titulo' => 'Borrador privado']);
+    }
+
+    public function test_mobile_rejects_publishing_content_without_a_destination(): void
+    {
+        $teacher = User::factory()->create([
+            'role' => Roles::DOCENTE,
+            'is_active' => true,
+        ]);
+        Sanctum::actingAs($teacher);
+
+        $this->postJson('/api/mobile/contents', [
+            'titulo' => 'Video sin enlace',
+            'tipo' => 'video',
+            'estado' => 'activo',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('url');
     }
 }

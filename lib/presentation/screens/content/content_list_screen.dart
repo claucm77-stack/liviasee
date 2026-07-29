@@ -9,7 +9,9 @@ import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/content_viewmodel.dart';
 
 class ContentListScreen extends ConsumerStatefulWidget {
-  const ContentListScreen({super.key});
+  const ContentListScreen({super.key, this.initialCategory});
+
+  final String? initialCategory;
 
   @override
   ConsumerState<ContentListScreen> createState() => _ContentListScreenState();
@@ -17,6 +19,28 @@ class ContentListScreen extends ConsumerStatefulWidget {
 
 class _ContentListScreenState extends ConsumerState<ContentListScreen> {
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_syncCategory);
+  }
+
+  @override
+  void didUpdateWidget(covariant ContentListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialCategory != widget.initialCategory) {
+      Future.microtask(_syncCategory);
+    }
+  }
+
+  Future<void> _syncCategory() async {
+    final selected = ref.read(contentViewModelProvider).selectedCategory;
+    if (selected == widget.initialCategory) return;
+    await ref
+        .read(contentViewModelProvider.notifier)
+        .setCategory(widget.initialCategory);
+  }
 
   static const _contentGroups = [
     _ContentGroup(
@@ -56,6 +80,7 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
     final currentUserId = authState.user?.uid ?? '';
     final q = _query.trim().toLowerCase();
     final filteredContents = state.contents.where((item) {
+      if (!item.hasUsableDestination) return false;
       if (q.isEmpty) return true;
       return item.titulo.toLowerCase().contains(q) ||
           item.descripcion.toLowerCase().contains(q) ||
@@ -293,14 +318,15 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
     List<Content> contents,
     String currentUserId,
   ) {
+    final pageContext = context;
     showModalBottomSheet<void>(
-      context: context,
+      context: pageContext,
       showDragHandle: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
@@ -310,7 +336,7 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
               children: [
                 Text(
                   group.title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF5F666A),
                         fontWeight: FontWeight.w900,
                         fontSize: 20,
@@ -322,9 +348,10 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     child: Text(
                       'No hay contenidos disponibles en esta sección.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF6F7579),
-                          ),
+                      style:
+                          Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF6F7579),
+                              ),
                     ),
                   )
                 else
@@ -338,7 +365,12 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                         return _PopularContentTile(
                           item: item,
                           isFavorite: item.isFavoriteFor(currentUserId),
-                          onOpen: () => _openContent(context, item),
+                          onOpen: () {
+                            Navigator.of(sheetContext).pop();
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) _openContent(pageContext, item);
+                            });
+                          },
                           onToggleInterest: () async {
                             if (currentUserId.isEmpty) return;
                             await ref
@@ -376,20 +408,21 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
   }
 
   Future<void> _openContent(BuildContext context, Content item) async {
-    final url = item.url.trim();
+    final uri = item.externalUri;
     if ((item.tipo == ContentType.video || item.tipo == ContentType.pdf) &&
-        url.isNotEmpty) {
-      final uri = Uri.tryParse(url);
-      if (uri != null &&
-          await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        uri != null) {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         return;
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No fue posible abrir el enlace.')),
+          const SnackBar(
+            content: Text(
+              'No fue posible abrir el enlace. Se mostrará la información disponible.',
+            ),
+          ),
         );
       }
-      return;
     }
 
     if (!context.mounted) return;
@@ -434,23 +467,29 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
                   _EventDetails(metadata: item.metadata),
                   const SizedBox(height: 12),
                 ],
-                Text(item.contenido.trim().isEmpty
-                    ? item.descripcion
-                    : item.contenido),
-                if (item.tipo == ContentType.evento && url.isNotEmpty) ...[
+                if (item.hasReadableDetails)
+                  Text(item.contenido.trim().isEmpty
+                      ? item.descripcion
+                      : item.contenido)
+                else
+                  const Text(
+                    'Este contenido no tiene información o un enlace disponible. Comunícalo al administrador.',
+                  ),
+                if (uri != null &&
+                    item.tipo != ContentType.video &&
+                    item.tipo != ContentType.pdf) ...[
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () async {
-                      final uri = Uri.tryParse(url);
-                      if (uri != null) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                     icon: const Icon(Icons.open_in_new),
-                    label: const Text('Abrir inscripción'),
+                    label: Text(item.tipo == ContentType.evento
+                        ? 'Abrir inscripción'
+                        : 'Abrir enlace'),
                   ),
                 ],
               ],

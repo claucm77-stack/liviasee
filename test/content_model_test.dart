@@ -27,4 +27,35 @@ void main() {
     expect(content.metadata['location'], 'Auditorio');
     expect(content.toMap()['autorNombre'], 'María Pérez');
   });
+
+  test('detecta contenidos sin texto ni enlace utilizable', () {
+    final incomplete = ContentModel.fromMap('missing-link', const {
+      'titulo': 'PDF incompleto',
+      'descripcion': '',
+      'tipo': 'pdf',
+      'url': '',
+      'contenido': '',
+      'imagen': '',
+      'categoria': 'Documentos',
+      'autorId': 'teacher',
+      'fechaCreacion': '2026-07-29T10:00:00Z',
+      'estado': 'activo',
+    });
+    final valid = ContentModel.fromMap('valid-link', const {
+      'titulo': 'PDF válido',
+      'descripcion': '',
+      'tipo': 'pdf',
+      'url': 'https://example.com/documento.pdf',
+      'contenido': '',
+      'imagen': '',
+      'categoria': 'Documentos',
+      'autorId': 'teacher',
+      'fechaCreacion': '2026-07-29T10:00:00Z',
+      'estado': 'activo',
+    });
+
+    expect(incomplete.hasUsableDestination, isFalse);
+    expect(valid.hasUsableDestination, isTrue);
+    expect(valid.externalUri?.host, 'example.com');
+  });
 }

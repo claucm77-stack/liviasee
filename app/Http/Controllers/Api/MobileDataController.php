@@ -295,6 +295,7 @@ class MobileDataController extends Controller
             ->when(! $canManage, fn ($query) => $query->where('status', 'publicado'))
             ->latest()
             ->get()
+            ->when(! $canManage, fn ($rows) => $rows->filter->hasUsableDestination())
             ->map($this->contentData(...));
         return response()->json(['data' => $rows]);
     }
@@ -307,7 +308,7 @@ class MobileDataController extends Controller
             'titulo' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
             'tipo' => ['required', 'in:texto,video,pdf,evento'],
-            'url' => ['nullable', 'string', 'max:2000'],
+            'url' => ['nullable', 'url:http,https', 'max:2000'],
             'contenido' => ['nullable', 'string'],
             'imagen' => ['nullable', 'string', 'max:2000'],
             'categoria' => ['nullable', 'string', 'max:120'],
@@ -319,6 +320,13 @@ class MobileDataController extends Controller
             'favoritos' => ['nullable', 'array'],
             'vistos' => ['nullable', 'array'],
         ]);
+        if (($data['estado'] ?? null) === 'activo') {
+            $request->validate(match ($data['tipo']) {
+                'texto' => ['contenido' => ['required', 'string']],
+                'video', 'pdf' => ['url' => ['required', 'url:http,https', 'max:2000']],
+                'evento' => ['contenido' => ['required_without:url', 'nullable', 'string']],
+            });
+        }
         $content = $this->findShared(Content::query(), $data['id'] ?? null) ?? new Content();
         $category = filled($data['categoria'] ?? null)
             ? ContentCategory::query()->where('name', $data['categoria'])->first()
