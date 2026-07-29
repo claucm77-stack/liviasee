@@ -303,6 +303,16 @@ class AuthViewModel extends StateNotifier<AuthState> {
     state = state.copyWith(clearError: true, clearSuccess: true);
   }
 
+  void markMicrobusinessRegistered() {
+    final current = state.user;
+    if (current == null) return;
+    state = state.copyWith(
+      user: current.copyWith(hasMicrobusiness: true),
+      successMessage: 'Cuenta y micronegocio registrados correctamente.',
+      clearError: true,
+    );
+  }
+
   String? _validateName(String value) {
     if (value.trim().isEmpty) {
       return 'El nombre es obligatorio.';

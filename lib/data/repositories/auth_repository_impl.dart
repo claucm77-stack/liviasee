@@ -54,6 +54,7 @@ class AuthRepositoryImpl implements AuthRepository {
               : firebaseUser.photoURL ?? '',
       createdAt: session.user.createdAt ?? cachedProfile?.createdAt,
       isActive: session.user.isActive,
+      hasMicrobusiness: session.user.hasMicrobusiness,
     );
   }
 
@@ -112,6 +113,7 @@ class AuthRepositoryImpl implements AuthRepository {
         photoUrl: user.photoURL ?? '',
         createdAt: DateTime.now(),
         isActive: true,
+        hasMicrobusiness: false,
       );
 
       await _firestoreService.setUserProfile(
@@ -190,6 +192,7 @@ class AuthRepositoryImpl implements AuthRepository {
       role: user.role,
       photoUrl: (saved['photoUrl'] ?? photoUrl).toString(),
       createdAt: user.createdAt,
+      hasMicrobusiness: user.hasMicrobusiness,
     );
 
     try {

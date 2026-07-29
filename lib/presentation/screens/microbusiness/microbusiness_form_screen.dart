@@ -15,9 +15,14 @@ import '../../viewmodels/microbusiness_viewmodel.dart';
 import '../../widgets/app_scaffold.dart';
 
 class MicrobusinessFormScreen extends ConsumerStatefulWidget {
-  const MicrobusinessFormScreen({super.key, this.businessId});
+  const MicrobusinessFormScreen({
+    super.key,
+    this.businessId,
+    this.onboardingRequired = false,
+  });
 
   final String? businessId;
+  final bool onboardingRequired;
 
   @override
   ConsumerState<MicrobusinessFormScreen> createState() =>
@@ -181,14 +186,19 @@ class _MicrobusinessFormScreenState
             ),
           ),
         );
-        return;
+        if (!widget.onboardingRequired) return;
       } finally {
         if (mounted) setState(() => _isUploadingImage = false);
       }
     }
 
     if (!mounted) return;
-    context.go('/micronegocios');
+    if (widget.onboardingRequired) {
+      ref.read(authViewModelProvider.notifier).markMicrobusinessRegistered();
+      context.go('/entrepreneur');
+    } else {
+      context.go('/micronegocios');
+    }
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -225,16 +235,21 @@ class _MicrobusinessFormScreenState
     }
 
     return AppScaffold(
-      title: _isEditing ? 'Editar micronegocio' : 'Crear micronegocio',
-      showBack: true,
+      title: widget.onboardingRequired
+          ? 'Registra tu micronegocio'
+          : _isEditing
+              ? 'Editar micronegocio'
+              : 'Crear micronegocio',
+      showBack: !widget.onboardingRequired,
       child: Form(
         key: _formKey,
         child: ListView(
           children: [
             SectionHeader(
               title: _isEditing ? 'Actualizar registro' : 'Nuevo registro',
-              subtitle:
-                  'Completa la información visible en el directorio georreferenciado.',
+              subtitle: widget.onboardingRequired
+                  ? 'Este paso es obligatorio para completar la creación de tu cuenta.'
+                  : 'Completa la información visible en el directorio georreferenciado.',
               icon: Icons.add_business_outlined,
             ),
             const SizedBox(height: 12),

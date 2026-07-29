@@ -127,12 +127,39 @@ class MobileBidirectionalSyncTest extends TestCase
             ->assertOk()
             ->assertJsonPath('user.email', 'nuevo@example.com')
             ->assertJsonPath('user.photo_url', 'https://example.com/existing-avatar.jpg')
+            ->assertJsonPath('user.has_microbusiness', false)
             ->assertJsonStructure(['token']);
 
         $this->assertDatabaseHas('users', [
             'email' => 'nuevo@example.com',
             'firebase_uid' => 'firebase-new-user',
         ]);
+    }
+
+    public function test_firebase_session_reports_when_required_microbusiness_is_registered(): void
+    {
+        $owner = User::factory()->create([
+            'email' => 'propietario@example.com',
+            'firebase_uid' => 'firebase-owner',
+            'role' => Roles::MICROEMPRESARIO,
+        ]);
+
+        \App\Models\Microbusiness::create([
+            'name' => 'Negocio obligatorio',
+            'owner_id' => 'firebase-owner',
+        ]);
+
+        $firebase = Mockery::mock(FirebaseTokenService::class);
+        $firebase->shouldReceive('verify')->once()->andReturn([
+            'uid' => 'firebase-owner',
+            'email' => 'propietario@example.com',
+        ]);
+        $this->app->instance(FirebaseTokenService::class, $firebase);
+
+        $this->postJson('/api/auth/firebase', ['id_token' => 'owner-token'])
+            ->assertOk()
+            ->assertJsonPath('user.id', $owner->id)
+            ->assertJsonPath('user.has_microbusiness', true);
     }
 
     public function test_mobile_profile_and_web_user_changes_share_laravel_state(): void

@@ -533,6 +533,7 @@ class User {
   final String photoUrl;
   final String roleDisplayName;
   final bool isActive;
+  final bool hasMicrobusiness;
   final DateTime? createdAt;
 
   User({
@@ -543,6 +544,7 @@ class User {
     required this.photoUrl,
     required this.roleDisplayName,
     required this.isActive,
+    required this.hasMicrobusiness,
     this.createdAt,
   });
 
@@ -557,6 +559,7 @@ class User {
       roleDisplayName:
           json['role_display_name'] as String? ?? AppRoles.label(role),
       isActive: json['is_active'] as bool? ?? true,
+      hasMicrobusiness: json['has_microbusiness'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String)
           : null,

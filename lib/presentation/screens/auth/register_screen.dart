@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_roles.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/app_scaffold.dart';
 
@@ -37,7 +36,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!mounted) return;
 
     if (state.user != null) {
-      context.go(_homeByRole(state.user!.role));
+      context.go('/micronegocios/form?onboarding=1');
       return;
     }
 
@@ -50,14 +49,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         SnackBar(content: Text(state.successMessage!)),
       );
     }
-  }
-
-  String _homeByRole(String? role) {
-    final normalized = AppRoles.normalize(role);
-    if (normalized == AppRoles.adminTi) return '/admin';
-    if (normalized == AppRoles.docenteAdmin) return '/admin-dashboard';
-    if (normalized == AppRoles.docente) return '/educator';
-    return '/entrepreneur';
   }
 
   @override
@@ -121,7 +112,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           )
                         : const Icon(Icons.check),
-                    label: const Text('Crear cuenta'),
+                    label: const Text('Continuar al micronegocio'),
                   ),
                 ],
               ),

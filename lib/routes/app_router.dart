@@ -8,6 +8,7 @@ import '../core/di/providers.dart';
 import '../presentation/screens/auth/forgot_password_screen.dart';
 import '../presentation/screens/auth/login_screen.dart';
 import '../presentation/screens/auth/register_screen.dart';
+import '../presentation/viewmodels/auth_viewmodel.dart';
 import '../presentation/screens/content/content_list_screen.dart';
 import '../presentation/screens/community/forum_screen.dart';
 import '../presentation/screens/entities/entities_screen.dart';
@@ -65,15 +66,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
+      final currentUser = ref.read(authViewModelProvider).user ?? user;
+      final role = AppRoles.normalize(currentUser.role);
+      final requiresMicrobusiness =
+          AppRoles.isMicroempresario(role) && !currentUser.hasMicrobusiness;
+      if (requiresMicrobusiness && location != '/micronegocios/form') {
+        return '/micronegocios/form?onboarding=1';
+      }
+
       if (location == '/') {
-        return _homeByRole(user.role);
+        return _homeByRole(currentUser.role);
       }
 
       if (location == '/login' || location == '/register') {
         return _homeByRole(user.role);
       }
-
-      final role = AppRoles.normalize(user.role);
 
       if (location == '/admin' && !AppRoles.canManageSystem(role)) {
         return _homeByRole(user.role);
@@ -207,7 +214,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/micronegocios/form',
-        builder: (context, state) => const MicrobusinessFormScreen(),
+        builder: (context, state) => MicrobusinessFormScreen(
+          onboardingRequired: state.uri.queryParameters['onboarding'] == '1',
+        ),
       ),
       GoRoute(
         path: '/micronegocios/form/:id',

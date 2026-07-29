@@ -66,6 +66,7 @@ class RegisterController extends Controller
                 'role' => $user->role,
                 'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
+                'has_microbusiness' => false,
             ],
             'token' => $token->plainTextToken,
         ], 201);

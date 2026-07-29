@@ -10,6 +10,7 @@ class AppUser extends Equatable {
   final String photoUrl;
   final DateTime? createdAt;
   final bool isActive;
+  final bool hasMicrobusiness;
 
   const AppUser({
     required this.uid,
@@ -19,6 +20,7 @@ class AppUser extends Equatable {
     this.photoUrl = '',
     this.createdAt,
     this.isActive = true,
+    this.hasMicrobusiness = false,
   });
 
   bool get isAdmin => AppRoles.isAdminTi(role);
@@ -40,6 +42,7 @@ class AppUser extends Equatable {
     String? photoUrl,
     DateTime? createdAt,
     bool? isActive,
+    bool? hasMicrobusiness,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -49,10 +52,11 @@ class AppUser extends Equatable {
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
+      hasMicrobusiness: hasMicrobusiness ?? this.hasMicrobusiness,
     );
   }
 
   @override
   List<Object?> get props =>
-      [uid, name, email, role, photoUrl, createdAt, isActive];
+      [uid, name, email, role, photoUrl, createdAt, isActive, hasMicrobusiness];
 }

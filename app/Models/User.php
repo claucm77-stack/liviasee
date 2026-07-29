@@ -41,6 +41,16 @@ class User extends Authenticatable
         return (string) ($this->photo_url ?? '');
     }
 
+    public function hasMicrobusiness(): bool
+    {
+        $ownerIds = array_filter([
+            $this->firebase_uid,
+            (string) $this->id,
+        ]);
+
+        return Microbusiness::query()->whereIn('owner_id', $ownerIds)->exists();
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

@@ -68,6 +68,7 @@ class AuthController extends Controller
                 'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
                 'is_active' => $user->is_active,
+                'has_microbusiness' => $user->hasMicrobusiness(),
             ],
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
@@ -165,6 +166,7 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'photo_url' => $user->photoUrl(),
                 'role_display_name' => $user->getRoleDisplayName(),
+                'has_microbusiness' => $user->hasMicrobusiness(),
             ],
             'token' => $token->plainTextToken,
             'expires_at' => $token->accessToken->expires_at,
@@ -219,6 +221,7 @@ class AuthController extends Controller
             'role_display_name' => $user->getRoleDisplayName(),
             'is_active' => $user->is_active,
             'created_at' => $user->created_at,
+            'has_microbusiness' => $user->hasMicrobusiness(),
         ]);
     }
 
@@ -262,6 +265,7 @@ class AuthController extends Controller
                 'role_display_name' => $user->getRoleDisplayName(),
                 'is_active' => $user->is_active,
                 'created_at' => $user->created_at,
+                'has_microbusiness' => $user->hasMicrobusiness(),
             ],
             'token' => $newToken->plainTextToken,
             'expires_at' => $newToken->accessToken->expires_at,
