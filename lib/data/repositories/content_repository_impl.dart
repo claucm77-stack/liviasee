@@ -224,7 +224,8 @@ class ContentRepositoryImpl implements ContentRepository {
     )
         .where((content) {
       if (categoria == null || categoria.isEmpty) return true;
-      return content.categoria == categoria;
+      return content.categoria.trim().toLowerCase() ==
+          categoria.trim().toLowerCase();
     }).toList();
 
     if (contents.length <= limit) return contents;

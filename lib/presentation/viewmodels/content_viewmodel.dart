@@ -61,29 +61,42 @@ class ContentViewModel extends StateNotifier<ContentState> {
 
   final Ref _ref;
   StreamSubscription<List<Content>>? _contentsSub;
+  int _loadGeneration = 0;
 
   String? get _userId => _ref.read(authViewModelProvider).user?.uid;
   String get _userRole =>
       _ref.read(authViewModelProvider).user?.role ?? AppRoles.microempresario;
 
   Future<void> loadInitial() async {
+    final generation = ++_loadGeneration;
+    final category = state.selectedCategory;
     state = state.copyWith(
       isLoading: true,
+      isLoadingMore: false,
+      contents: const <Content>[],
       clearError: true,
       clearLastDate: true,
       hasMore: true,
     );
 
     await _contentsSub?.cancel();
+    if (generation != _loadGeneration ||
+        !_sameCategory(state.selectedCategory, category)) {
+      return;
+    }
     _contentsSub = _ref
         .read(contentRepositoryProvider)
         .watchContents(
           currentUserRole: _userRole,
-          categoria: state.selectedCategory,
+          categoria: category,
           limit: 10,
         )
         .listen(
       (contents) {
+        if (generation != _loadGeneration ||
+            !_sameCategory(state.selectedCategory, category)) {
+          return;
+        }
         DateTime? last;
         if (contents.isNotEmpty) {
           last = contents.last.fechaCreacion;
@@ -98,6 +111,10 @@ class ContentViewModel extends StateNotifier<ContentState> {
         );
       },
       onError: (Object e) {
+        if (generation != _loadGeneration ||
+            !_sameCategory(state.selectedCategory, category)) {
+          return;
+        }
         state = state.copyWith(
           isLoading: false,
           error: e.toString(),
@@ -109,15 +126,22 @@ class ContentViewModel extends StateNotifier<ContentState> {
   Future<void> loadMore() async {
     if (state.isLoadingMore || !state.hasMore) return;
 
+    final generation = _loadGeneration;
+    final category = state.selectedCategory;
     state = state.copyWith(isLoadingMore: true, clearError: true);
 
     try {
       final next = await _ref.read(contentRepositoryProvider).fetchContentsPage(
             currentUserRole: _userRole,
-            categoria: state.selectedCategory,
+            categoria: category,
             limit: 10,
             startAfterDate: state.lastDate,
           );
+
+      if (generation != _loadGeneration ||
+          !_sameCategory(state.selectedCategory, category)) {
+        return;
+      }
 
       if (next.isEmpty) {
         state = state.copyWith(
@@ -141,6 +165,10 @@ class ContentViewModel extends StateNotifier<ContentState> {
         lastDate: merged.last.fechaCreacion,
       );
     } catch (e) {
+      if (generation != _loadGeneration ||
+          !_sameCategory(state.selectedCategory, category)) {
+        return;
+      }
       state = state.copyWith(
         isLoadingMore: false,
         error: e.toString(),
@@ -149,14 +177,30 @@ class ContentViewModel extends StateNotifier<ContentState> {
   }
 
   Future<void> setCategory(String? category) async {
+    final normalizedCategory = category?.trim();
+    final selected = normalizedCategory == null || normalizedCategory.isEmpty
+        ? null
+        : normalizedCategory;
+    if (_sameCategory(state.selectedCategory, selected) &&
+        _contentsSub != null) {
+      return;
+    }
     state = state.copyWith(
-      selectedCategory: category,
-      clearSelectedCategory: category == null,
+      selectedCategory: selected,
+      clearSelectedCategory: selected == null,
+      contents: const <Content>[],
+      isLoading: true,
+      isLoadingMore: false,
       clearError: true,
       clearLastDate: true,
       hasMore: true,
     );
     await loadInitial();
+  }
+
+  bool _sameCategory(String? first, String? second) {
+    return (first ?? '').trim().toLowerCase() ==
+        (second ?? '').trim().toLowerCase();
   }
 
   Future<void> createContent(Content content) async {
@@ -253,6 +297,7 @@ class ContentViewModel extends StateNotifier<ContentState> {
 
   @override
   void dispose() {
+    _loadGeneration++;
     _contentsSub?.cancel();
     super.dispose();
   }

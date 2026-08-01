@@ -79,8 +79,14 @@ class _ContentListScreenState extends ConsumerState<ContentListScreen> {
     final authState = ref.watch(authViewModelProvider);
     final currentUserId = authState.user?.uid ?? '';
     final q = _query.trim().toLowerCase();
+    final selectedCategory =
+        (widget.initialCategory ?? '').trim().toLowerCase();
     final filteredContents = state.contents.where((item) {
       if (!item.hasUsableDestination) return false;
+      if (selectedCategory.isNotEmpty &&
+          item.categoria.trim().toLowerCase() != selectedCategory) {
+        return false;
+      }
       if (q.isEmpty) return true;
       return item.titulo.toLowerCase().contains(q) ||
           item.descripcion.toLowerCase().contains(q) ||

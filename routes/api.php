@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ContentCategoryController;
 use App\Http\Controllers\Api\MicrobusinessFieldController;
 use App\Http\Controllers\Api\MobileDataController;
 use App\Http\Controllers\Api\TeacherChatController;
+use App\Http\Controllers\Api\BusinessChatController;
 use App\Http\Controllers\Api\ForumController;
 use App\Http\Controllers\Api\UserController;
 use App\Constants\Roles;
@@ -69,6 +70,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::delete('/entities/{id}', [MobileDataController::class, 'deleteEntity']);
         Route::get('/teacher-chats/{teacherKey}/messages', [TeacherChatController::class, 'index']);
         Route::post('/teacher-chats/{teacherKey}/messages', [TeacherChatController::class, 'store']);
+        Route::get('/business-chats', [BusinessChatController::class, 'conversations']);
+        Route::get('/business-chats/{businessKey}/messages', [BusinessChatController::class, 'index']);
+        Route::post('/business-chats/{businessKey}/messages', [BusinessChatController::class, 'store']);
         Route::get('/forums', [ForumController::class, 'index']);
         Route::post('/forums', [ForumController::class, 'store']);
         Route::post('/forums/{forumTopic}/replies', [ForumController::class, 'reply']);

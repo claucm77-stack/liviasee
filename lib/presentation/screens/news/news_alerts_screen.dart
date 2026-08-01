@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_roles.dart';
 import '../../../core/di/providers.dart';
 import '../../../data/models/alert_model.dart';
+import '../../../data/models/business_conversation_model.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/app_scaffold.dart';
 
@@ -17,6 +19,7 @@ class NewsAlertsScreen extends ConsumerStatefulWidget {
 
 class _NewsAlertsScreenState extends ConsumerState<NewsAlertsScreen> {
   var _alerts = <AlertModel>[];
+  var _chatAlerts = <BusinessConversationModel>[];
   var _loading = true;
   String? _error;
 
@@ -29,8 +32,13 @@ class _NewsAlertsScreenState extends ConsumerState<NewsAlertsScreen> {
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final rows =
-          await ref.read(laravelApiServiceProvider).fetchMobileData('alerts');
+      final api = ref.read(laravelApiServiceProvider);
+      final results = await Future.wait([
+        api.fetchMobileData('alerts'),
+        api.fetchBusinessConversations(),
+      ]);
+      final rows = results[0] as List<Map<String, dynamic>>;
+      final chats = results[1] as List<BusinessConversationModel>;
       final alerts = rows.map(AlertModel.fromMap).toList()
         ..sort((a, b) {
           final order = a.sortOrder.compareTo(b.sortOrder);
@@ -39,6 +47,7 @@ class _NewsAlertsScreenState extends ConsumerState<NewsAlertsScreen> {
       if (!mounted) return;
       setState(() {
         _alerts = alerts;
+        _chatAlerts = chats.where((chat) => chat.unreadCount > 0).toList();
         _loading = false;
         _error = null;
       });
@@ -72,6 +81,43 @@ class _NewsAlertsScreenState extends ConsumerState<NewsAlertsScreen> {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            if (_chatAlerts.isNotEmpty) ...[
+              const SectionHeader(
+                title: 'Mensajes nuevos',
+                subtitle: 'Conversaciones recibidas desde tus micronegocios.',
+                icon: Icons.mark_chat_unread_outlined,
+              ),
+              const SizedBox(height: 12),
+              ..._chatAlerts.map(
+                (chat) => Card(
+                  child: ListTile(
+                    leading: Badge(
+                      label: Text('${chat.unreadCount}'),
+                      child: const Icon(Icons.chat_bubble_outline),
+                    ),
+                    title: Text(
+                        chat.isOwner ? chat.customerName : chat.businessName),
+                    subtitle: Text(
+                      chat.lastMessage.isEmpty
+                          ? 'Nuevo mensaje'
+                          : chat.lastMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(Uri(
+                      path: '/micronegocios/chat/${chat.businessId}',
+                      queryParameters: {
+                        'name': chat.businessName,
+                        if (chat.isOwner) 'customer': chat.customerId,
+                        if (chat.isOwner) 'customerName': chat.customerName,
+                      },
+                    ).toString()),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             const SectionHeader(
               title: 'Fuentes oficiales',
               subtitle:

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../core/constants/app_config.dart';
 import '../core/constants/app_roles.dart';
 import '../data/models/teacher_chat_message_model.dart';
+import '../data/models/business_conversation_model.dart';
 
 /// Service for interacting with Laravel API.
 /// Provides authentication, session management, and data access.
@@ -470,6 +471,71 @@ class LaravelApiService {
       body: jsonEncode({
         'teacher_name': teacherName,
         'teacher_area': teacherArea,
+        'text': text,
+      }),
+    );
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! Map) {
+      throw const FormatException('Laravel no devolvió el mensaje guardado.');
+    }
+    return TeacherChatMessageModel.fromJson(
+      data.map((key, value) => MapEntry(key.toString(), value)),
+    );
+  }
+
+  Future<List<BusinessConversationModel>> fetchBusinessConversations() async {
+    final rows = await fetchMobileData('business-chats');
+    return rows.map(BusinessConversationModel.fromJson).toList();
+  }
+
+  Future<List<TeacherChatMessageModel>> fetchBusinessMessages({
+    required String businessId,
+    String? customerId,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/mobile/business-chats/${Uri.encodeComponent(businessId)}/messages',
+    ).replace(queryParameters: {
+      if (customerId != null && customerId.isNotEmpty)
+        'customer_id': customerId,
+    });
+    final response = await _client.get(uri, headers: _headers());
+    final decoded = _handleResponse(response);
+    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((row) => row.map((key, value) => MapEntry(key.toString(), value)))
+        .map(TeacherChatMessageModel.fromJson)
+        .toList();
+  }
+
+  Stream<List<TeacherChatMessageModel>> watchBusinessMessages({
+    required String businessId,
+    String? customerId,
+  }) async* {
+    while (true) {
+      yield await fetchBusinessMessages(
+        businessId: businessId,
+        customerId: customerId,
+      );
+      await Future<void>.delayed(const Duration(seconds: 3));
+    }
+  }
+
+  Future<TeacherChatMessageModel> sendBusinessMessage({
+    required String businessId,
+    String? customerId,
+    required String text,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '$_baseUrl/mobile/business-chats/${Uri.encodeComponent(businessId)}/messages',
+      ),
+      headers: _headers(),
+      body: jsonEncode({
+        if (customerId != null && customerId.isNotEmpty)
+          'customer_id': customerId,
         'text': text,
       }),
     );

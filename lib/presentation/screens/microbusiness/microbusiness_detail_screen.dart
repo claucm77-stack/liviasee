@@ -33,6 +33,8 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
       currentUserId: authState.user?.uid,
       ownerId: business.propietarioId,
     );
+    final isOwner = authState.user?.uid == business.propietarioId;
+    final canChat = AppRoles.isMicroempresario(authState.user?.role);
 
     return AppScaffold(
       title: business.nombre,
@@ -118,6 +120,33 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
             value: business.contacto,
           ),
           const SizedBox(height: 12),
+          if (canChat) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  if (isOwner) {
+                    context.push(Uri(
+                      path: '/micronegocios/mensajes',
+                      queryParameters: {'business': business.id},
+                    ).toString());
+                  } else {
+                    context.push(Uri(
+                      path: '/micronegocios/chat/${business.id}',
+                      queryParameters: {'name': business.nombre},
+                    ).toString());
+                  }
+                },
+                icon: Icon(isOwner
+                    ? Icons.mark_chat_unread_outlined
+                    : Icons.chat_outlined),
+                label: Text(isOwner
+                    ? 'Ver mensajes recibidos'
+                    : 'Chatear con el micronegocio'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(

@@ -23,6 +23,7 @@ import '../presentation/screens/microbusiness/microbusiness_detail_screen.dart';
 import '../presentation/screens/microbusiness/microbusiness_form_screen.dart';
 import '../presentation/screens/microbusiness/microbusiness_list_screen.dart';
 import '../presentation/screens/microbusiness/microbusiness_map_screen.dart';
+import '../presentation/screens/microbusiness/business_chat_screen.dart';
 import '../presentation/screens/news/news_alerts_screen.dart';
 import '../presentation/screens/profile/profile_screen.dart';
 import '../presentation/screens/splash/splash_screen.dart';
@@ -236,6 +237,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/micronegocios/map',
         builder: (context, state) => MicrobusinessMapScreen(
           focusId: state.uri.queryParameters['focusId'],
+        ),
+      ),
+      GoRoute(
+        path: '/micronegocios/mensajes',
+        builder: (context, state) => BusinessInboxScreen(
+          businessId: state.uri.queryParameters['business'],
+        ),
+      ),
+      GoRoute(
+        path: '/micronegocios/chat/:id',
+        builder: (context, state) => BusinessChatScreen(
+          businessId: state.pathParameters['id'] ?? '',
+          businessName: state.uri.queryParameters['name'] ?? 'Micronegocio',
+          customerId: state.uri.queryParameters['customer'],
+          customerName: state.uri.queryParameters['customerName'],
         ),
       ),
       GoRoute(
