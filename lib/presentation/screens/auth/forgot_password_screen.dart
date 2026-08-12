@@ -90,7 +90,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Si no recibes el enlace o necesitas apoyo para recuperar tu cuenta, escribe a soporte.aulas@sanmartin.edu.co.',
+                    'Si no recibes el enlace o necesitas apoyo para recuperar tu cuenta, escribe a juan.drodriguez@sanmartin.edu.co.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),

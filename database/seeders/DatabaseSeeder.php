@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
             ['id' => 1],
             [
                 'platform_name' => 'Livi@se',
-                'contact_email' => 'soporte.aulas@sanmartin.edu.co',
+                'contact_email' => 'juan.drodriguez@sanmartin.edu.co',
                 'support_whatsapp' => '+570000000000',
                 'about' => 'Plataforma de acompañamiento académico, agenda, directorio y alertas para microempresarios.',
                 'maintenance_mode' => false,
