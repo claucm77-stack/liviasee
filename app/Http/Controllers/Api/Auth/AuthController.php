@@ -20,12 +20,12 @@ use Throwable;
  */
 class AuthController extends Controller
 {
-    public function firebase(Request $request, FirebaseTokenService $firebase): JsonResponse
+    public function firebase(Request $request): JsonResponse
     {
         $validated = $request->validate(['id_token' => ['required', 'string']]);
 
         try {
-            $identity = $firebase->verify($validated['id_token']);
+            $identity = app(FirebaseTokenService::class)->verify($validated['id_token']);
         } catch (Throwable $exception) {
             Log::warning('No fue posible validar el token Firebase de la app.', [
                 'exception' => $exception::class,
