@@ -16,10 +16,6 @@ use Throwable;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly FirebaseUserService $firebaseUsers)
-    {
-    }
-
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('search', ''));
@@ -91,7 +87,7 @@ class UserController extends Controller
         $statusMessage = 'Usuario creado correctamente.';
 
         try {
-            $firebaseUid = $this->firebaseUsers->createUser($validated);
+            $firebaseUid = $this->firebaseUsers()->createUser($validated);
             $user->update(['firebase_uid' => $firebaseUid]);
         } catch (AuthException|FirebaseException|Throwable $e) {
             Log::error('No se pudo sincronizar usuario nuevo con Firebase', [
@@ -186,7 +182,7 @@ class UserController extends Controller
 
         if (!empty($localUser->firebase_uid)) {
             try {
-                $this->firebaseUsers->updateUser($localUser->firebase_uid, $validated);
+                $this->firebaseUsers()->updateUser($localUser->firebase_uid, $validated);
             } catch (AuthException|FirebaseException|Throwable $e) {
                 Log::error('No se pudo sincronizar actualización de usuario con Firebase', [
                     'user_id' => $localUser->id,
@@ -198,7 +194,7 @@ class UserController extends Controller
             }
         } else {
             try {
-                $firebaseUid = $this->firebaseUsers->createUser($validated);
+                $firebaseUid = $this->firebaseUsers()->createUser($validated);
                 $localUser->update(['firebase_uid' => $firebaseUid]);
             } catch (AuthException|FirebaseException|Throwable $e) {
                 Log::error('Usuario local sin firebase_uid y falló creación en Firebase durante update', [
@@ -250,7 +246,7 @@ class UserController extends Controller
         }
 
         try {
-            $this->firebaseUsers->deleteUser($localUser->firebase_uid);
+            $this->firebaseUsers()->deleteUser($localUser->firebase_uid);
             $localUser->delete();
         } catch (AuthException|FirebaseException|Throwable $e) {
             return redirect()
@@ -261,5 +257,10 @@ class UserController extends Controller
         return redirect()
             ->route('admin.users.index')
             ->with('status', 'Usuario eliminado correctamente.');
+    }
+
+    private function firebaseUsers(): FirebaseUserService
+    {
+        return app(FirebaseUserService::class);
     }
 }
