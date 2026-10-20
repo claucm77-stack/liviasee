@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ContentCategoryController extends Controller
@@ -128,7 +129,19 @@ class ContentCategoryController extends Controller
 
     private function storeImage(Request $request): ?string
     {
-        return $request->hasFile('image') ? $request->file('image')->store('content-categories', 'public') : null;
+        if (! $request->hasFile('image')) {
+            return null;
+        }
+
+        $path = $request->file('image')->store('content-categories', 'public');
+
+        if (! is_string($path) || $path === '') {
+            throw ValidationException::withMessages([
+                'image' => 'No fue posible guardar la imagen. Verifica los permisos de storage/app/public en el servidor.',
+            ]);
+        }
+
+        return $path;
     }
 
     private function deleteImage(?string $path): void
