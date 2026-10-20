@@ -12,6 +12,14 @@ class ParsedMapsLocation {
   final double longitude;
 }
 
+bool hasUsableLocation(Microbusiness business) {
+  return business.latitud >= -90 &&
+      business.latitud <= 90 &&
+      business.longitud >= -180 &&
+      business.longitud <= 180 &&
+      !(business.latitud == 0 && business.longitud == 0);
+}
+
 ParsedMapsLocation? parseGoogleMapsLocation(String rawUrl) {
   final text = rawUrl.trim();
   if (text.isEmpty) return null;

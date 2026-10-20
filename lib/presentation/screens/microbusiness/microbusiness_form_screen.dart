@@ -88,9 +88,7 @@ class _MicrobusinessFormScreenState
     _nombreCtrl.text = business.nombre;
     _descripcionCtrl.text = business.descripcion;
     _direccionCtrl.text = business.direccion;
-    _mapsUrlCtrl.text = business.mapsUrl.isNotEmpty
-        ? business.mapsUrl
-        : 'https://www.google.com/maps/search/?api=1&query=${business.latitud},${business.longitud}';
+    _mapsUrlCtrl.text = business.mapsUrl;
     _imageUrl = business.imagen;
     _contactoCtrl.text = business.contacto;
     _horarioCtrl.text = business.horario;
@@ -116,9 +114,12 @@ class _MicrobusinessFormScreenState
     final current =
         _isEditing ? _findBusiness(state.businesses, widget.businessId!) : null;
     final parsedLocation = parseGoogleMapsLocation(_mapsUrlCtrl.text);
-    final latitude = parsedLocation?.latitude ?? current?.latitud ?? 4.7110;
-    final longitude =
-        parsedLocation?.longitude ?? current?.longitud ?? -74.0721;
+    final hasCurrentLocation =
+        current != null && !(current.latitud == 0 && current.longitud == 0);
+    final latitude = parsedLocation?.latitude ??
+        (hasCurrentLocation ? current.latitud : 0.0);
+    final longitude = parsedLocation?.longitude ??
+        (hasCurrentLocation ? current.longitud : 0.0);
     final customFields = {
       for (final entry in _fieldControllers.entries)
         entry.key: entry.value.text.trim(),
@@ -298,17 +299,16 @@ class _MicrobusinessFormScreenState
                     TextFormField(
                       controller: _direccionCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Dirección',
+                        labelText: 'Dirección (opcional)',
                         prefixIcon: Icon(Icons.place_outlined),
                       ),
-                      validator: _required,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _mapsUrlCtrl,
                       keyboardType: TextInputType.url,
                       decoration: const InputDecoration(
-                        labelText: 'URL de Google Maps',
+                        labelText: 'URL de Google Maps (opcional)',
                         prefixIcon: Icon(Icons.map_outlined),
                       ),
                       validator: _mapsUrlValidator,
@@ -403,7 +403,7 @@ class _MicrobusinessFormScreenState
       value == null || value.trim().isEmpty ? 'Campo obligatorio.' : null;
 
   String? _mapsUrlValidator(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Campo obligatorio.';
+    if (value == null || value.trim().isEmpty) return null;
     final uri = Uri.tryParse(value.trim());
     if (uri == null || !uri.hasScheme) return 'Ingresa una URL válida.';
     final host = uri.host.toLowerCase();

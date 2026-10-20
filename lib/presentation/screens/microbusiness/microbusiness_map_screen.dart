@@ -33,7 +33,7 @@ class _MicrobusinessMapScreenState
     final businesses = state.nearbyBusinesses.isEmpty
         ? state.businesses
         : state.nearbyBusinesses;
-    final locatedBusinesses = businesses.where(_hasValidLocation).toList();
+    final locatedBusinesses = businesses.where(hasUsableLocation).toList();
     final focused = widget.focusId == null
         ? null
         : _findBusiness(locatedBusinesses, widget.focusId!);
@@ -224,14 +224,6 @@ class _MicrobusinessMapScreenState
     if (context.mounted) {
       context.push('/micronegocios/detail/${business.id}');
     }
-  }
-
-  bool _hasValidLocation(Microbusiness business) {
-    return business.latitud >= -90 &&
-        business.latitud <= 90 &&
-        business.longitud >= -180 &&
-        business.longitud <= 180 &&
-        !(business.latitud == 0 && business.longitud == 0);
   }
 
   Microbusiness? _findBusiness(List<Microbusiness> businesses, String id) {

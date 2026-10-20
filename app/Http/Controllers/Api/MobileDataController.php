@@ -378,20 +378,21 @@ class MobileDataController extends Controller
         $data = $request->validate([
             'id' => ['nullable', 'string', 'max:191'], 'nombre' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'], 'categoria' => ['nullable', 'string', 'max:120'],
-            'direccion' => ['nullable', 'string'], 'latitud' => ['required', 'numeric'], 'longitud' => ['required', 'numeric'],
+            'direccion' => ['nullable', 'string'], 'latitud' => ['nullable', 'numeric', 'between:-90,90'], 'longitud' => ['nullable', 'numeric', 'between:-180,180'],
             'mapsUrl' => ['nullable', 'string'], 'imagen' => ['nullable', 'string'], 'propietarioId' => ['nullable', 'string'],
             'contacto' => ['nullable', 'string'], 'horario' => ['nullable', 'string'], 'estado' => ['required', 'in:activo,inactivo'],
             'fechaCreacion' => ['nullable', 'date'], 'favoritos' => ['nullable', 'array'], 'ratingPromedio' => ['nullable', 'numeric'],
             'totalCalificaciones' => ['nullable', 'integer'], 'campos' => ['nullable', 'array'],
         ]);
         $business = $this->findShared(Microbusiness::query(), $data['id'] ?? null) ?? new Microbusiness();
-        $this->authorizeBusiness($request, $business, $data['propietarioId'] ?? null);
+        $ownerId = (string) ($request->user()->firebase_uid ?: $request->user()->id);
+        $this->authorizeBusiness($request, $business, $ownerId);
         $business->fill([
             'external_id' => $business->exists ? $business->external_id : $this->externalId($data['id'] ?? null),
             'name' => $data['nombre'], 'description' => $data['descripcion'] ?? null, 'category' => $data['categoria'] ?? null,
-            'address' => $data['direccion'] ?? null, 'latitude' => $data['latitud'], 'longitude' => $data['longitud'],
+            'address' => $data['direccion'] ?? null, 'latitude' => $data['latitud'] ?? 0, 'longitude' => $data['longitud'] ?? 0,
             'maps_url' => $data['mapsUrl'] ?? null, 'image_url' => $data['imagen'] ?? null,
-            'owner_id' => $data['propietarioId'] ?? $request->user()->firebase_uid, 'contact' => $data['contacto'] ?? null,
+            'owner_id' => $business->exists ? $business->owner_id : $ownerId, 'contact' => $data['contacto'] ?? null,
             'schedule' => $data['horario'] ?? null, 'status' => $data['estado'],
             'created_on_app_at' => $data['fechaCreacion'] ?? now(), 'favorites' => $data['favoritos'] ?? [],
             'average_rating' => $data['ratingPromedio'] ?? null, 'ratings_count' => $data['totalCalificaciones'] ?? 0,
@@ -532,5 +533,5 @@ class MobileDataController extends Controller
     private function requireAdmin(Request $request): void { abort_unless(Roles::normalize($request->user()->role) === Roles::ADMIN_TI, 403); }
     private function requireSensitiveAccess(Request $request): void { abort_unless(Roles::canViewSensitive($request->user()->role), 403); }
     private function requireContentManager(Request $request): void { abort_unless(Roles::canManageContent($request->user()->role) || Roles::normalize($request->user()->role) === Roles::ADMIN_TI, 403); }
-    private function authorizeBusiness(Request $request, Microbusiness $business, ?string $owner): void { $role = Roles::normalize($request->user()->role); $isAdmin = in_array($role, [Roles::ADMIN_TI, Roles::DOCENTE_ADMIN], true); abort_unless($isAdmin || ($owner && $owner === $request->user()->firebase_uid), 403); }
+    private function authorizeBusiness(Request $request, Microbusiness $business, ?string $owner): void { $role = Roles::normalize($request->user()->role); $isAdmin = in_array($role, [Roles::ADMIN_TI, Roles::DOCENTE_ADMIN], true); $currentOwner = (string) ($request->user()->firebase_uid ?: $request->user()->id); $businessOwner = $business->exists ? (string) $business->owner_id : (string) $owner; abort_unless($isAdmin || ($businessOwner !== '' && $businessOwner === $currentOwner), 403); }
 }

@@ -13,6 +13,7 @@ class ContentCategoryController extends Controller
     public function index(): JsonResponse
     {
         $categories = ContentCategory::query()
+            ->where('scope', 'contenidos')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')

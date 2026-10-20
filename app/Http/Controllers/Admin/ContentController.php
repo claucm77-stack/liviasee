@@ -262,12 +262,10 @@ class ContentController extends Controller
     {
         return ContentCategory::query()
             ->where(function ($query) use ($includeCategoryId) {
-                $query->where('is_active', true);
+                $query->where('scope', 'contenidos')
+                    ->where('is_active', true);
                 if ($includeCategoryId) {
-                    $query->orWhere(
-                        $query->getModel()->getQualifiedKeyName(),
-                        $includeCategoryId,
-                    );
+                    $query->orWhereKey($includeCategoryId);
                 }
             })
             ->orderBy('sort_order')

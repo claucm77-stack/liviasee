@@ -104,11 +104,12 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Text(business.descripcion),
           const SizedBox(height: 16),
-          _InfoTile(
-            icon: Icons.place_outlined,
-            title: 'Dirección',
-            value: business.direccion,
-          ),
+          if (business.direccion.trim().isNotEmpty)
+            _InfoTile(
+              icon: Icons.place_outlined,
+              title: 'Dirección',
+              value: business.direccion,
+            ),
           _InfoTile(
             icon: Icons.schedule_outlined,
             title: 'Horario',
@@ -147,15 +148,18 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _openExternalMaps(business),
-              icon: const Icon(Icons.directions_outlined),
-              label: const Text('Cómo llegar'),
+          if (business.mapsUrl.trim().isNotEmpty ||
+              hasUsableLocation(business)) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _openExternalMaps(business),
+                icon: const Icon(Icons.directions_outlined),
+                label: const Text('Cómo llegar'),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(
@@ -230,9 +234,12 @@ class MicrobusinessDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _shareBusiness(Microbusiness business) async {
-    final mapUrl = mapsSearchUri(business).toString();
+    final mapUrl =
+        business.mapsUrl.trim().isNotEmpty || hasUsableLocation(business)
+            ? '\nCómo llegar: ${mapsSearchUri(business)}'
+            : '';
     await Share.share(
-      '${business.nombre}\n${business.descripcion}\nDirección: ${business.direccion}\nCómo llegar: $mapUrl',
+      '${business.nombre}\n${business.descripcion}${business.direccion.trim().isEmpty ? '' : '\nDirección: ${business.direccion}'}$mapUrl',
       subject: business.nombre,
     );
   }
